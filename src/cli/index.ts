@@ -32,10 +32,10 @@ async function showMainMenu() {
       name: 'action',
       message: '请选择操作：',
       choices: [
-        { name: '🔄 更新订阅', value: 'update' },
-        { name: '⚙️  配置管理', value: 'config' },
-        { name: '📊 查看状态', value: 'status' },
-        { name: '🚪 退出', value: 'exit' },
+        { name: '1. 更新订阅', value: 'update' },
+        { name: '2. 配置管理', value: 'config' },
+        { name: '3. 查看状态', value: 'status' },
+        { name: '4. 退出', value: 'exit' },
       ],
     },
   ]);
@@ -70,12 +70,12 @@ async function handleUpdate() {
   }
 
   const choices = [
-    { name: '📦 更新所有站点', value: 'all' },
-    ...config.sites.map((site: SiteConfig) => ({
-      name: `🌐 ${site.name || site.id}`,
+    { name: '1. 更新所有站点', value: 'all' },
+    ...config.sites.map((site: SiteConfig, index: number) => ({
+      name: `${index + 2}. ${site.name || site.id}`,
       value: site.id,
     })),
-    { name: '⬅️  返回', value: 'back' },
+    { name: '0. 返回', value: 'back' },
   ];
 
   const { siteId } = await inquirer.prompt([
@@ -118,11 +118,11 @@ async function handleConfig() {
       name: 'configAction',
       message: '配置管理：',
       choices: [
-        { name: '➕ 添加站点', value: 'add' },
-        { name: '📝 编辑站点', value: 'edit' },
-        { name: '🗑️  删除站点', value: 'delete' },
-        { name: '📋 查看配置', value: 'view' },
-        { name: '⬅️  返回', value: 'back' },
+        { name: '1. 添加站点', value: 'add' },
+        { name: '2. 编辑站点', value: 'edit' },
+        { name: '3. 删除站点', value: 'delete' },
+        { name: '4. 查看配置', value: 'view' },
+        { name: '0. 返回', value: 'back' },
       ],
     },
   ]);
@@ -177,9 +177,9 @@ async function addSite() {
       name: 'extractionMode',
       message: '提取模式:',
       choices: [
-        { name: 'API 模式（推荐）', value: 'api' },
-        { name: 'DOM 模式', value: 'dom' },
-        { name: '剪贴板模式', value: 'clipboard' },
+        { name: '1. API 模式（推荐）', value: 'api' },
+        { name: '2. DOM 模式', value: 'dom' },
+        { name: '3. 剪贴板模式', value: 'clipboard' },
       ],
       default: 'api',
     },
@@ -240,9 +240,9 @@ async function editSite() {
       name: 'extractionMode',
       message: '提取模式:',
       choices: [
-        { name: 'API 模式', value: 'api' },
-        { name: 'DOM 模式', value: 'dom' },
-        { name: '剪贴板模式', value: 'clipboard' },
+        { name: '1. API 模式', value: 'api' },
+        { name: '2. DOM 模式', value: 'dom' },
+        { name: '3. 剪贴板模式', value: 'clipboard' },
       ],
       default: site.extractionMode,
     },

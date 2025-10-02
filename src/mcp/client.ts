@@ -23,7 +23,7 @@ export class MCPClient {
       // 创建 stdio 传输层
       this.transport = new StdioClientTransport({
         command: 'npx',
-        args: ['-y', '@modelcontextprotocol/server-chrome-devtools'],
+        args: ['-y', 'chrome-devtools-mcp'],
       });
 
       // 创建客户端
