@@ -44,7 +44,7 @@ export class NetworkListener {
       }
 
       const result = await this.mcpClient.callTool(
-        'mcp__chrome-devtools__list_network_requests',
+        'list_network_requests',
         params
       );
 
@@ -83,7 +83,7 @@ export class NetworkListener {
   async getRequest(url: string): Promise<MCPNetworkRequest | null> {
     try {
       const result = await this.mcpClient.callTool(
-        'mcp__chrome-devtools__get_network_request',
+        'get_network_request',
         { url }
       );
 

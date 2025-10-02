@@ -19,7 +19,7 @@ export class PageManager {
    */
   async listPages(): Promise<MCPPage[]> {
     try {
-      const result = await this.mcpClient.callTool('mcp__chrome-devtools__list_pages');
+      const result = await this.mcpClient.callTool('list_pages');
 
       if (result.content && Array.isArray(result.content)) {
         const pages = result.content
@@ -53,7 +53,7 @@ export class PageManager {
     try {
       logger.info(`创建新页面: ${url}`);
 
-      await this.mcpClient.callTool('mcp__chrome-devtools__new_page', {
+      await this.mcpClient.callTool('new_page', {
         url,
         timeout,
       });
@@ -84,7 +84,7 @@ export class PageManager {
    */
   async selectPage(pageIdx: number): Promise<void> {
     try {
-      await this.mcpClient.callTool('mcp__chrome-devtools__select_page', {
+      await this.mcpClient.callTool('select_page', {
         pageIdx,
       });
 
@@ -108,7 +108,7 @@ export class PageManager {
     try {
       logger.info(`导航到: ${url}`);
 
-      await this.mcpClient.callTool('mcp__chrome-devtools__navigate_page', {
+      await this.mcpClient.callTool('navigate_page', {
         url,
         timeout,
       });
@@ -134,7 +134,7 @@ export class PageManager {
     try {
       logger.debug(`等待文本出现: ${text}`);
 
-      await this.mcpClient.callTool('mcp__chrome-devtools__wait_for', {
+      await this.mcpClient.callTool('wait_for', {
         text,
         timeout,
       });
@@ -160,7 +160,7 @@ export class PageManager {
         throw new Error('未指定要关闭的页面');
       }
 
-      await this.mcpClient.callTool('mcp__chrome-devtools__close_page', {
+      await this.mcpClient.callTool('close_page', {
         pageIdx: targetIdx,
       });
 
@@ -188,7 +188,7 @@ export class PageManager {
     try {
       logger.debug('执行脚本');
 
-      const result = await this.mcpClient.callTool('mcp__chrome-devtools__evaluate_script', {
+      const result = await this.mcpClient.callTool('evaluate_script', {
         function: script,
         args,
       });

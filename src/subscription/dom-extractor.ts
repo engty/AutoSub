@@ -165,7 +165,7 @@ export class DomSubscriptionExtractor {
    */
   private async takeSnapshot(): Promise<any> {
     try {
-      const result = await this.mcpClient.callTool('mcp__chrome-devtools__take_snapshot');
+      const result = await this.mcpClient.callTool('take_snapshot');
 
       if (result.content && Array.isArray(result.content)) {
         const textContent = result.content.find((item: any) => item.type === 'text');
