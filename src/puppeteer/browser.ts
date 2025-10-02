@@ -1,9 +1,9 @@
 import puppeteer, { Browser, Page } from 'puppeteer-core';
 import { logger } from '../utils/logger.js';
 import { ErrorCode, AutoSubError } from '../types/index.js';
-import * as os from 'os';
-import * as fs from 'fs-extra';
-import * as path from 'path';
+import os from 'os';
+import fs from 'fs-extra';
+import path from 'path';
 
 /**
  * Chrome 可执行文件路径检测
