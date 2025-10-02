@@ -131,7 +131,6 @@ AutoSub 是一个基于 **Python + Playwright** 的命令行自动化工具，�
 
 **配置管理模块：**
 - 本地配置文件：`~/.autosub/config.yaml`
-- 支持多账户管理
 - 凭证本地加密存储
 - 页面选择器可远程更新
 
