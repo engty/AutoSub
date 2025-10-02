@@ -9,7 +9,7 @@
 
 ## Executive Summary（执行摘要）
 
-**Clash AutoSub** 是一个 Python 命令行自动化工具，专为需要频繁更新 VPN 订阅地址的用户设计。该工具通过自动登录指定的 VPN 代理网站、抓取最新订阅地址并更新到 ClashX 配置文件，解决了订阅地址每 5 分钟更新一次导致的手动维护负担。
+**Clash AutoSub** 是一个基于 Node.js + TypeScript 的命令行自动化工具,专为需要频繁更新 VPN 订阅地址的用户设计。该工具通过 Chrome DevTools MCP Server 自动登录指定的 VPN 代理网站、抓取最新订阅地址并更新到 ClashX 配置文件,解决了订阅地址每 5 分钟更新一次导致的手动维护负担。
 
 **主要问题：** 部分 VPN 代理网站采用高频更新机制（5 分钟/次），用户需要频繁手动登录网站获取新订阅地址并更新 ClashX 配置，过程繁琐且容易中断网络连接。
 
@@ -85,7 +85,7 @@
 
 ### 核心概念
 
-Clash AutoSub 是一个基于 **Python + Playwright** 的命令行自动化工具，通过 **GitHub 托管的远程安装脚本** 实现快速部署和更新。工具采用 **双登录策略** 和 **智能部分更新机制**，确保安全性和可靠性。
+Clash AutoSub 是一个基于 **Node.js + TypeScript + Chrome DevTools MCP** 的命令行自动化工具,通过 **GitHub 托管的远程安装脚本** 实现快速部署和更新。工具采用 **统一登录策略** 和 **智能部分更新机制**,确保安全性和可靠性。
 
 ### 核心特性
 
@@ -123,7 +123,7 @@ Clash AutoSub 是一个基于 **Python + Playwright** 的命令行自动化工�
 #### 3. 技术架构
 
 **自动登录与订阅抓取模块：**
-- 使用 Playwright 模拟浏览器
+- 使用 Chrome DevTools MCP Server 控制浏览器
 - 支持 Headless 模式运行
 - 智能等待页面加载完成
 - 精确定位订阅链接元素
@@ -199,11 +199,11 @@ autosub setup  # 再次运行向导
 
 #### 6. 为什么这个方案会成功
 
-1. **解决核心痛点：** 自动化登录和订阅抓取，消除手动操作
-2. **安全可靠：** 本地化存储，零隐私风险
-3. **易于维护：** GitHub 远程选择器配置，快速适配网站变化
-4. **技术成熟：** Python + Playwright 生态完善，稳定可靠
-5. **扩展性强：** 支持多机场、多账户，可轻松添加新的 VPN 服务商
+1. **解决核心痛点：** 自动化登录和订阅抓取,消除手动操作
+2. **安全可靠：** 本地化存储,零隐私风险
+3. **易于维护：** GitHub 远程选择器配置,快速适配网站变化
+4. **技术成熟：** Node.js + Chrome DevTools MCP 生态完善,稳定可靠
+5. **扩展性强：** 支持多机场、多账户,可轻松添加新的 VPN 服务商
 
 ---
 
@@ -468,15 +468,16 @@ autosub --help         # 显示帮助信息
 ### Technology Preferences（技术偏好）
 
 **前端（CLI）：**
-- 语言: Bash（安装脚本） + Python 3.9+（核心逻辑）
-- CLI 框架: `click` 或 `argparse`
-- 交互式界面: `questionary` 或 `PyInquirer`
+- 语言: TypeScript 5.0+
+- 运行时: Node.js 18+
+- CLI 框架: CAC
+- 交互式界面: Inquirer.js
 
 **后端（自动化引擎）：**
-- 浏览器自动化: Playwright
-- HTTP 客户端: `httpx`
-- 配置解析: PyYAML
-- 加密存储: `cryptography`
+- 浏览器自动化: Chrome DevTools MCP Server
+- MCP 客户端: @modelcontextprotocol/sdk
+- HTTP 客户端: axios 或 native fetch
+- 配置解析: yaml 或 js-yaml
 
 **数据存储：**
 - 配置文件: YAML 格式
@@ -484,8 +485,8 @@ autosub --help         # 显示帮助信息
 - 日志存储: 纯文本
 
 **部署与分发：**
-- 安装脚本: Shell Script
-- 依赖管理: `requirements.txt` + `pip`
+- 安装方式: npm/npx
+- 依赖管理: package.json
 - 版本管理: GitHub Releases
 - 自动更新: GitHub API
 
@@ -493,23 +494,26 @@ autosub --help         # 显示帮助信息
 
 **Repository Structure（仓库结构）：**
 ```
-Clash AutoSub/
-├── install.sh                    # 安装脚本
-├── autosub.py                    # 主程序入口
-├── requirements.txt              # Python 依赖
+clash-autosub/
+├── bin/                          # CLI 入口
+│   └── clash-autosub.js
+├── package.json                  # npm 配置
+├── tsconfig.json                 # TypeScript 配置
 ├── README.md                     # 项目文档
 ├── LICENSE                       # 开源协议（MIT）
 │
 ├── src/                          # 源代码目录
-│   ├── __init__.py
-│   ├── cli.py                    # 命令行接口
-│   ├── config.py                 # 配置管理
-│   ├── auth.py                   # 登录模块（密码/Cookie）
-│   ├── scraper.py                # 订阅地址抓取
-│   ├── validator.py              # 订阅地址验证
-│   ├── updater.py                # Clash 配置更新
-│   ├── cron.py                   # Cron 任务管理
-│   └── utils.py                  # 工具函数
+│   ├── cli/                      # CLI 主程序
+│   │   └── index.ts
+│   ├── core/                     # 核心业务逻辑
+│   │   ├── mcp/                  # MCP 客户端
+│   │   ├── auth/                 # 登录模块
+│   │   ├── scraper/              # 订阅抓取
+│   │   ├── validator/            # 订阅验证
+│   │   └── updater/              # Clash 配置更新
+│   ├── config/                   # 配置管理
+│   ├── utils/                    # 工具函数
+│   └── types/                    # TypeScript 类型定义
 │
 ├── selectors/                    # 页面选择器配置
 │   ├── selectors.json            # 主配置文件
@@ -517,6 +521,7 @@ Clash AutoSub/
 │       ├── candytally.json       # 糖果云选择器
 │       └── hongxingyun.json      # 红杏云选择器
 │
+├── templates/                    # 配置模板
 ├── tests/                        # 测试用例
 └── docs/                         # 文档
 ```
@@ -547,7 +552,8 @@ Clash AutoSub/
 
 **技术约束：**
 - 需要访问 VPN 网站
-- Python 3.9+ 要求
+- Node.js 18+ 要求
+- Chrome 浏览器安装
 
 ### Key Assumptions（关键假设）
 
@@ -557,7 +563,7 @@ Clash AutoSub/
 
 **技术假设：**
 - VPN 网站页面结构相对稳定
-- Playwright 不被反爬检测
+- Chrome DevTools MCP 不被反爬检测
 - GitHub 可访问
 
 **业务假设：**
@@ -571,12 +577,12 @@ Clash AutoSub/
 ### Key Risks（核心风险）
 
 1. **VPN 网站反爬机制 [高风险]**
-   - 缓解：Playwright Stealth 模式，Cookie 登录
+   - 缓解：Chrome DevTools MCP 低检测风险，Cookie 登录
 
 2. **网站页面结构变化 [中风险]**
    - 缓解：GitHub 远程选择器，快速更新
 
-3. **Playwright 兼容性问题 [中风险]**
+3. **MCP 兼容性问题 [中风险]**
    - 缓解：详细文档，备选方案
 
 4. **订阅地址验证误判 [低风险]**
@@ -602,9 +608,9 @@ Clash AutoSub/
 
 | 工具 | 速度 | JS支持 | Cookie管理 | 推荐度 |
 |------|------|--------|------------|--------|
+| Chrome DevTools MCP | ⚡⚡⚡ 快 | ✅ | ✅ 优秀 | ⭐⭐⭐⭐⭐ |
 | Playwright | ⚡⚡⚡ 快 | ✅ | ✅ 优秀 | ⭐⭐⭐⭐⭐ |
 | Selenium | ⚡⚡ 中等 | ✅ | ✅ 良好 | ⭐⭐⭐⭐ |
-| MechanicalSoup | ⚡ 慢 | ❌ | ✅ | ❌ 不适合 |
 
 ### Appendix B: 命令速查表
 
@@ -648,10 +654,10 @@ clash_config:
 
 **核心要点：**
 - **问题：** 动态订阅地址（5 分钟更新）导致手动维护负担
-- **解决方案：** Python + Playwright 自动化工具，支持双登录策略
+- **解决方案：** Node.js + TypeScript + Chrome DevTools MCP 自动化工具,支持统一登录策略
 - **目标用户：** 技术型 VPN 重度用户（macOS/Linux/Windows+WSL）
 - **MVP 范围：** 配置向导 + 订阅更新 + Cron 定时 + 脚本自动更新
-- **技术栈：** Python 3.9+ + Playwright + PyYAML + httpx
+- **技术栈：** Node.js 18+ + TypeScript 5.0+ + Chrome DevTools MCP + CAC
 
 **请基于此简报创建 PRD，重点关注：**
 1. 向导式配置流程的详细交互设计
