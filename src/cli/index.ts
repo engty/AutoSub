@@ -1,17 +1,11 @@
 import cac from 'cac';
 import chalk from 'chalk';
-import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf-8'));
+import { version } from '../version.js';
 
 const cli = cac('clash-autosub');
 
 cli
-  .version(pkg.version)
+  .version(version)
   .help()
   .option('--debug', '启用调试模式');
 
@@ -32,7 +26,7 @@ cli
 cli
   .command('update', '手动更新订阅')
   .option('--silent', '静默模式（适用于 Cron）')
-  .action(async (options) => {
+  .action(async () => {
     console.log(chalk.green('🔄 正在更新订阅地址...'));
     console.log(chalk.gray('更新功能开发中...'));
   });
