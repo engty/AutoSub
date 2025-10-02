@@ -1,13 +1,12 @@
 import { cac } from 'cac';
 import chalk from 'chalk';
-import os from 'os';
 
 const cli = cac('clash-autosub');
 
 cli
   .command('update [siteId]', '更新 Clash 订阅')
   .option('--all', '更新所有站点')
-  .action(async (siteId, options) => {
+  .action(async (_siteId, _options) => {
     console.log(chalk.cyan('Clash AutoSub - 订阅更新'));
     console.log('功能即将完成...');
   });
