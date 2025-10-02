@@ -9,6 +9,21 @@ import { logger } from '../utils/logger.js';
 
 const cli = cac('clash-autosub');
 
+// 安全加载配置的辅助函数
+function safeLoadConfig(): ConfigManager {
+  const configManager = new ConfigManager();
+
+  try {
+    configManager.load();
+  } catch (error: any) {
+    // 如果配置加载失败，使用默认配置并保存
+    logger.warn('配置加载失败，初始化默认配置:', error.message);
+    configManager.save(); // 保存默认配置
+  }
+
+  return configManager;
+}
+
 // 主菜单
 async function showMainMenu() {
   const { action } = await inquirer.prompt([
@@ -46,8 +61,7 @@ async function showMainMenu() {
 
 // 处理更新
 async function handleUpdate() {
-  const configManager = new ConfigManager();
-  configManager.load();
+  const configManager = safeLoadConfig();
   const config = configManager.getConfig();
 
   if (config.sites.length === 0) {
@@ -171,8 +185,7 @@ async function addSite() {
     },
   ]);
 
-  const configManager = new ConfigManager();
-  configManager.load();
+  const configManager = safeLoadConfig();
   const siteConfig = createEmptySiteConfig(answers.id, answers.name, answers.url);
 
   // 覆盖提取模式
@@ -186,8 +199,7 @@ async function addSite() {
 
 // 编辑站点
 async function editSite() {
-  const configManager = new ConfigManager();
-  configManager.load();
+  const configManager = safeLoadConfig();
   const config = configManager.getConfig();
 
   if (config.sites.length === 0) {
@@ -244,8 +256,7 @@ async function editSite() {
 
 // 删除站点
 async function deleteSite() {
-  const configManager = new ConfigManager();
-  configManager.load();
+  const configManager = safeLoadConfig();
   const config = configManager.getConfig();
 
   if (config.sites.length === 0) {
@@ -283,8 +294,7 @@ async function deleteSite() {
 
 // 查看配置
 async function viewConfig() {
-  const configManager = new ConfigManager();
-  configManager.load();
+  const configManager = safeLoadConfig();
   const config = configManager.getConfig();
 
   console.log(chalk.cyan('\n📋 当前配置:\n'));
@@ -307,8 +317,7 @@ async function viewConfig() {
 
 // 处理状态
 async function handleStatus() {
-  const configManager = new ConfigManager();
-  configManager.load();
+  const configManager = safeLoadConfig();
   const config = configManager.getConfig();
 
   console.log(chalk.cyan('\n📊 系统状态:\n'));
