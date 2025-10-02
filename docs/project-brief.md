@@ -1,4 +1,4 @@
-# Project Brief: AutoSub
+# Project Brief: Clash AutoSub
 
 **版本：** 1.0
 **创建日期：** 2025-10-01
@@ -9,7 +9,7 @@
 
 ## Executive Summary（执行摘要）
 
-**AutoSub** 是一个 Python 命令行自动化工具，专为需要频繁更新 VPN 订阅地址的用户设计。该工具通过自动登录指定的 VPN 代理网站、抓取最新订阅地址并更新到 ClashX 配置文件，解决了订阅地址每 5 分钟更新一次导致的手动维护负担。
+**Clash AutoSub** 是一个 Python 命令行自动化工具，专为需要频繁更新 VPN 订阅地址的用户设计。该工具通过自动登录指定的 VPN 代理网站、抓取最新订阅地址并更新到 ClashX 配置文件，解决了订阅地址每 5 分钟更新一次导致的手动维护负担。
 
 **主要问题：** 部分 VPN 代理网站采用高频更新机制（5 分钟/次），用户需要频繁手动登录网站获取新订阅地址并更新 ClashX 配置，过程繁琐且容易中断网络连接。
 
@@ -85,7 +85,7 @@
 
 ### 核心概念
 
-AutoSub 是一个基于 **Python + Playwright** 的命令行自动化工具，通过 **GitHub 托管的远程安装脚本** 实现快速部署和更新。工具采用 **双登录策略** 和 **智能部分更新机制**，确保安全性和可靠性。
+Clash AutoSub 是一个基于 **Python + Playwright** 的命令行自动化工具，通过 **GitHub 托管的远程安装脚本** 实现快速部署和更新。工具采用 **双登录策略** 和 **智能部分更新机制**，确保安全性和可靠性。
 
 ### 核心特性
 
@@ -178,7 +178,7 @@ AutoSub 是一个基于 **Python + Playwright** 的命令行自动化工具，�
 
 **首次使用（向导配置）：**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xxx/AutoSub/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/xxx/Clash AutoSub/main/install.sh | bash
 autosub setup
 ```
 
@@ -339,8 +339,8 @@ autosub setup  # 再次运行向导
 - 支持自定义路径
 - 验证路径有效性
 
-#### 4. AutoSub 脚本自动更新
-**功能描述：** 检查并更新 AutoSub 脚本到最新版本
+#### 4. Clash AutoSub 脚本自动更新
+**功能描述：** 检查并更新 Clash AutoSub 脚本到最新版本
 
 **关键实现：**
 - 检查 GitHub Releases 最新版本
@@ -395,7 +395,7 @@ MVP 被认为成功需要满足：
 
 ```bash
 # 安装
-curl -fsSL https://raw.githubusercontent.com/xxx/AutoSub/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/xxx/Clash AutoSub/main/install.sh | bash
 
 # 配置向导（首次使用）
 autosub setup          # 添加 VPN 账户
@@ -406,7 +406,7 @@ autosub update         # 手动更新订阅
 autosub cron           # 设置定时更新
 
 # 维护
-autosub upgrade        # 更新 AutoSub 脚本
+autosub upgrade        # 更新 Clash AutoSub 脚本
 autosub status         # 查看配置状态
 autosub refresh-cookie <账户名>  # 刷新 Cookie
 
@@ -493,7 +493,7 @@ autosub --help         # 显示帮助信息
 
 **Repository Structure（仓库结构）：**
 ```
-AutoSub/
+Clash AutoSub/
 ├── install.sh                    # 安装脚本
 ├── autosub.py                    # 主程序入口
 ├── requirements.txt              # Python 依赖
@@ -644,7 +644,7 @@ clash_config:
 
 ### PM Handoff（移交给产品经理）
 
-项目简报已完成，包含 AutoSub（VPN 订阅地址自动化工具）的完整上下文。
+项目简报已完成，包含 Clash AutoSub（VPN 订阅地址自动化工具）的完整上下文。
 
 **核心要点：**
 - **问题：** 动态订阅地址（5 分钟更新）导致手动维护负担
@@ -660,7 +660,7 @@ clash_config:
 4. Cookie 管理和过期提醒的用户体验
 5. 错误处理和回滚机制的完整流程
 
-**参考配置文件：** `/Users/engtyleong/Projects/AutoSub/yaml/clash_config_default.yaml`
+**参考配置文件：** `/Users/engtyleong/Projects/Clash AutoSub/yaml/clash_config_default.yaml`
 
 ---
 

@@ -23,9 +23,9 @@ export interface ClashConfig {
 }
 
 /**
- * AutoSub 配置
+ * Clash AutoSub 配置
  */
-export interface AutoSubConfig {
+export interface ClashAutoSubConfig {
   version: string;
   sites: SiteConfig[];
   clash: ClashConfig;

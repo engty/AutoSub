@@ -1,4 +1,4 @@
-# AutoSub 产品需求文档 (PRD)
+# Clash AutoSub 产品需求文档 (PRD)
 
 **版本：** 1.0
 **创建日期：** 2025-10-02
@@ -34,7 +34,7 @@
 
 **核心目标：**
 
-AutoSub 是一个基于 **Node.js + Chrome DevTools MCP** 的命令行自动化工具，解决动态 VPN 订阅地址（5分钟更新）导致的手动维护负担。通过 Google 官方的 Chrome DevTools MCP Server，实现用户手动登录后自动捕获凭证（Cookie + Token + Storage），并更新 Clash 配置文件。
+Clash AutoSub 是一个基于 **Node.js + Chrome DevTools MCP** 的命令行自动化工具，解决动态 VPN 订阅地址（5分钟更新）导致的手动维护负担。通过 Google 官方的 Chrome DevTools MCP Server，实现用户手动登录后自动捕获凭证（Cookie + Token + Storage），并更新 Clash 配置文件。
 
 **关键特性：**
 
@@ -68,9 +68,9 @@ AutoSub 是一个基于 **Node.js + Chrome DevTools MCP** 的命令行自动化�
 ### 1.3 项目目录结构
 
 ```
-AutoSub/
+clash-autosub/
 ├── bin/
-│   └── autosub.js              # CLI 入口
+│   └── clash-autosub.js        # CLI 入口
 ├── src/
 │   ├── cli/
 │   │   ├── index.ts            # CLI 主程序
@@ -149,7 +149,7 @@ AutoSub/
 
 部分 VPN 代理服务商（糖果云、红杏云等）采用动态订阅地址机制（5分钟失效），导致用户需频繁手动登录、复制订阅地址并更新配置文件，严重干扰工作流程。
 
-AutoSub 通过 **Google 官方的 Chrome DevTools MCP** 自动化引擎解决此痛点，并采用 **ZCF 风格的交互式 CLI**，提供优雅的用户体验。
+Clash AutoSub 通过 **Google 官方的 Chrome DevTools MCP** 自动化引擎解决此痛点，并采用 **ZCF 风格的交互式 CLI**，提供优雅的用户体验。
 
 ---
 
@@ -322,7 +322,7 @@ AutoSub 通过 **Google 官方的 Chrome DevTools MCP** 自动化引擎解决此
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                 AutoSub CLI (Node.js)                │
+│                 Clash AutoSub CLI (Node.js)                │
 │  ┌─────────────────────────────────────────────┐   │
 │  │         CLI Layer (CAC + Inquirer)          │   │
 │  └─────────────────────────────────────────────┘   │
@@ -581,7 +581,7 @@ autosub update --config /path/to/config.yaml
 #### 主菜单
 
 ```
-🚀 AutoSub - VPN 订阅自动化工具
+🚀 Clash AutoSub - VPN 订阅自动化工具
 
 ? 请选择操作:
   1️⃣  配置订阅站点
@@ -590,7 +590,7 @@ autosub update --config /path/to/config.yaml
   4️⃣  查看状态
   5️⃣  刷新 Cookie
   6️⃣  设置 Clash 路径
-  7️⃣  升级 AutoSub
+  7️⃣  升级 Clash AutoSub
   ─────────────────
   ❌  退出
 ```
@@ -682,7 +682,7 @@ autosub update --config /path/to/config.yaml
 **Epic 目标：** 实现基于 Chrome DevTools MCP 的自动化核心引擎
 
 #### Story 1.1: MCP 客户端集成
-- **作为** AutoSub 用户
+- **作为** Clash AutoSub 用户
 - **我想要** 系统能够连接和控制 Chrome DevTools MCP
 - **以便** 实现浏览器自动化操作
 
@@ -693,7 +693,7 @@ autosub update --config /path/to/config.yaml
 4. ✅ 正确处理 MCP 连接失败和超时
 
 #### Story 1.2: 凭证捕获功能
-- **作为** AutoSub 用户
+- **作为** Clash AutoSub 用户
 - **我想要** 系统能够自动捕获我登录后的 Cookie 和 Token
 - **以便** 后续自动获取订阅地址
 
@@ -705,7 +705,7 @@ autosub update --config /path/to/config.yaml
 5. ✅ 保存所有凭证到配置文件（加密存储）
 
 #### Story 1.3: 订阅地址提取
-- **作为** AutoSub 用户
+- **作为** Clash AutoSub 用户
 - **我想要** 系统能够自动提取订阅地址
 - **以便** 更新 Clash 配置
 
@@ -717,7 +717,7 @@ autosub update --config /path/to/config.yaml
 5. ✅ 自动处理广告弹窗
 
 #### Story 1.4: 订阅地址验证
-- **作为** AutoSub 用户
+- **作为** Clash AutoSub 用户
 - **我想要** 系统验证订阅地址有效性
 - **以便** 避免更新无效地址导致配置损坏
 
@@ -735,7 +735,7 @@ autosub update --config /path/to/config.yaml
 **Epic 目标：** 实现 ZCF 风格的交互式 CLI 界面
 
 #### Story 2.1: 交互式菜单
-- **作为** AutoSub 用户
+- **作为** Clash AutoSub 用户
 - **我想要** 一个清晰的交互式菜单
 - **以便** 快速选择操作
 
@@ -746,7 +746,7 @@ autosub update --config /path/to/config.yaml
 4. ✅ 支持返回上一级菜单
 
 #### Story 2.2: 配置向导
-- **作为** AutoSub 新用户
+- **作为** Clash AutoSub 新用户
 - **我想要** 一个分步骤的配置向导
 - **以便** 快速完成首次配置
 
@@ -758,7 +758,7 @@ autosub update --config /path/to/config.yaml
 5. ✅ 每步显示进度提示（如：步骤 2/4）
 
 #### Story 2.3: 进度和状态显示
-- **作为** AutoSub 用户
+- **作为** Clash AutoSub 用户
 - **我想要** 看到操作的实时进度
 - **以便** 了解当前状态
 
@@ -775,7 +775,7 @@ autosub update --config /path/to/config.yaml
 **Epic 目标：** 实现 Clash 配置文件的智能更新和备份
 
 #### Story 3.1: 配置文件解析和更新
-- **作为** AutoSub 用户
+- **作为** Clash AutoSub 用户
 - **我想要** 系统能够准确更新 Clash 配置
 - **以便** 使用最新的订阅地址
 
@@ -787,7 +787,7 @@ autosub update --config /path/to/config.yaml
 5. ✅ 支持多站点配置（参考 test_config.yaml）
 
 #### Story 3.2: 智能部分更新
-- **作为** AutoSub 用户
+- **作为** Clash AutoSub 用户
 - **我想要** 只更新成功的站点
 - **以便** 避免部分失败导致全部回滚
 
@@ -798,7 +798,7 @@ autosub update --config /path/to/config.yaml
 4. ✅ 提供失败原因和修复建议
 
 #### Story 3.3: 自动备份和回滚
-- **作为** AutoSub 用户
+- **作为** Clash AutoSub 用户
 - **我想要** 系统自动备份配置
 - **以便** 出错时能够快速恢复
 
@@ -815,7 +815,7 @@ autosub update --config /path/to/config.yaml
 **Epic 目标：** 实现定时自动更新和工具维护功能
 
 #### Story 4.1: Cron 定时任务
-- **作为** AutoSub 用户
+- **作为** Clash AutoSub 用户
 - **我想要** 设置定时自动更新
 - **以便** 无需手动操作
 
@@ -827,7 +827,7 @@ autosub update --config /path/to/config.yaml
 5. ✅ 支持删除定时任务
 
 #### Story 4.2: 状态查看
-- **作为** AutoSub 用户
+- **作为** Clash AutoSub 用户
 - **我想要** 查看所有站点的状态
 - **以便** 了解订阅情况
 
@@ -839,7 +839,7 @@ autosub update --config /path/to/config.yaml
 5. ✅ 显示定时任务状态
 
 #### Story 4.3: 自动升级
-- **作为** AutoSub 用户
+- **作为** Clash AutoSub 用户
 - **我想要** 系统能够自动升级
 - **以便** 获取最新功能
 
