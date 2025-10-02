@@ -51,7 +51,8 @@
     "fs-extra": "^11.3.2",
     "inquirer": "^9.3.8",
     "js-yaml": "^4.1.0",
-    "ora": "^8.2.0"
+    "ora": "^8.2.0",
+    "puppeteer-core": "^24.23.0"
   },
   "devDependencies": {
     "@types/crypto-js": "^4.2.2",

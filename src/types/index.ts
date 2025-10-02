@@ -1,6 +1,24 @@
 // ==================== 基础配置类型 ====================
 
 /**
+ * 登录检测配置
+ */
+export interface LoginDetectionConfig {
+  urlPattern?: string; // URL 变化匹配模式
+  selector?: string; // 登录后出现的元素选择器
+  networkRequest?: string; // 登录后的网络请求模式
+  cookieName?: string; // 登录后设置的 Cookie 名称
+}
+
+/**
+ * 站点选择器配置(简化版)
+ */
+export interface SiteSelectors {
+  api?: APIPattern; // API 模式配置
+  dom?: DOMSelector[]; // DOM 选择器配置
+}
+
+/**
  * 订阅站点配置
  */
 export interface SiteConfig {
@@ -17,6 +35,8 @@ export interface SiteConfig {
   subscriptionUrl: string;
   extractionMode: 'api' | 'dom' | 'clipboard'; // 提取模式
   enabled: boolean; // 是否启用
+  loginDetection?: LoginDetectionConfig; // 登录检测配置
+  selector?: SiteSelectors; // 选择器配置
 }
 
 /**
@@ -160,6 +180,13 @@ export enum ErrorCode {
   MCP_NAVIGATION_FAILED = 'MCP_NAVIGATION_FAILED',
   MCP_SCRIPT_EXECUTION_FAILED = 'MCP_SCRIPT_EXECUTION_FAILED',
 
+  // Puppeteer 相关错误
+  BROWSER_LAUNCH_FAILED = 'BROWSER_LAUNCH_FAILED',
+  BROWSER_NOT_INITIALIZED = 'BROWSER_NOT_INITIALIZED',
+  PAGE_NAVIGATION_FAILED = 'PAGE_NAVIGATION_FAILED',
+  PAGE_OPERATION_FAILED = 'PAGE_OPERATION_FAILED',
+  LOGIN_DETECTION_FAILED = 'LOGIN_DETECTION_FAILED',
+
   // 凭证相关错误
   CREDENTIAL_CAPTURE_FAILED = 'CREDENTIAL_CAPTURE_FAILED',
   CREDENTIAL_DECRYPT_FAILED = 'CREDENTIAL_DECRYPT_FAILED',
@@ -168,6 +195,8 @@ export enum ErrorCode {
   SUBSCRIPTION_FETCH_FAILED = 'SUBSCRIPTION_FETCH_FAILED',
   SUBSCRIPTION_VALIDATION_FAILED = 'SUBSCRIPTION_VALIDATION_FAILED',
   SUBSCRIPTION_INVALID_FORMAT = 'SUBSCRIPTION_INVALID_FORMAT',
+  SUBSCRIPTION_EXTRACTION_FAILED = 'SUBSCRIPTION_EXTRACTION_FAILED',
+  NETWORK_CAPTURE_FAILED = 'NETWORK_CAPTURE_FAILED',
 
   // Clash 配置错误
   CLASH_CONFIG_NOT_FOUND = 'CLASH_CONFIG_NOT_FOUND',
