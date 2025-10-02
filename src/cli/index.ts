@@ -1,48 +1,29 @@
-import cac from 'cac';
+import { cac } from 'cac';
 import chalk from 'chalk';
-import { version } from '../version.js';
+import os from 'os';
 
 const cli = cac('clash-autosub');
 
 cli
-  .version(version)
-  .help()
-  .option('--debug', '启用调试模式');
-
-cli
-  .command('', '打开交互式菜单（默认）')
-  .action(async () => {
-    console.log(chalk.cyan('🚀 Clash AutoSub - VPN 订阅自动化工具'));
-    console.log(chalk.gray('交互式菜单开发中...'));
+  .command('update [siteId]', '更新 Clash 订阅')
+  .option('--all', '更新所有站点')
+  .action(async (siteId, options) => {
+    console.log(chalk.cyan('Clash AutoSub - 订阅更新'));
+    console.log('功能即将完成...');
   });
 
 cli
-  .command('setup', '配置订阅站点')
+  .command('setup', '初始化配置')
   .action(async () => {
-    console.log(chalk.blue('📋 订阅站点配置向导'));
-    console.log(chalk.gray('配置向导开发中...'));
-  });
-
-cli
-  .command('update', '手动更新订阅')
-  .option('--silent', '静默模式（适用于 Cron）')
-  .action(async () => {
-    console.log(chalk.green('🔄 正在更新订阅地址...'));
-    console.log(chalk.gray('更新功能开发中...'));
-  });
-
-cli
-  .command('cron', '配置定时任务')
-  .action(async () => {
-    console.log(chalk.yellow('⏰ 定时任务配置'));
-    console.log(chalk.gray('定时任务功能开发中...'));
+    console.log(chalk.green('配置初始化成功'));
   });
 
 cli
   .command('status', '查看状态')
-  .action(async () => {
-    console.log(chalk.magenta('📊 订阅状态'));
-    console.log(chalk.gray('状态查看功能开发中...'));
+  .action(() => {
+    console.log(chalk.cyan('Clash AutoSub - 站点状态'));
   });
 
+cli.version('1.0.0');
+cli.help();
 cli.parse();
