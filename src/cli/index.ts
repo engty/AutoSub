@@ -150,43 +150,46 @@ async function addSite() {
   const answers = await inquirer.prompt([
     {
       type: 'input',
-      name: 'id',
-      message: '站点 ID（唯一标识）:',
-      validate: (input) => (input.trim() ? true : '请输入站点 ID'),
-    },
-    {
-      type: 'input',
       name: 'name',
-      message: '站点名称:',
+      message: '订阅站点名称:',
+      validate: (input) => (input.trim() ? true : '请输入站点名称'),
     },
     {
       type: 'input',
       name: 'url',
-      message: '订阅页面 URL:',
+      message: '订阅页面网址:',
       validate: (input) => {
         try {
           new URL(input);
           return true;
         } catch {
-          return '请输入有效的 URL';
+          return '请输入有效的网址';
         }
       },
     },
     {
       type: 'list',
       name: 'extractionMode',
-      message: '提取模式:',
+      message: '获取方式:',
       choices: [
-        { name: '1. API 模式（推荐）', value: 'api' },
-        { name: '2. DOM 模式', value: 'dom' },
-        { name: '3. 剪贴板模式', value: 'clipboard' },
+        { name: '1. 自动获取（推荐）', value: 'api' },
+        { name: '2. 网页解析', value: 'dom' },
+        { name: '3. 手动复制', value: 'clipboard' },
       ],
       default: 'api',
     },
   ]);
 
   const configManager = safeLoadConfig();
-  const siteConfig = createEmptySiteConfig(answers.id, answers.name, answers.url);
+
+  // 使用名称生成 ID（移除特殊字符，转为小写）
+  const id = answers.name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  const siteConfig = createEmptySiteConfig(id, answers.name, answers.url);
 
   // 覆盖提取模式
   siteConfig.extractionMode = answers.extractionMode;
@@ -194,7 +197,7 @@ async function addSite() {
   configManager.addSite(siteConfig);
   configManager.save();
 
-  console.log(chalk.green(`\n✅ 站点 "${answers.name || answers.id}" 添加成功！`));
+  console.log(chalk.green(`\n✅ 站点 "${answers.name}" 添加成功！`));
 }
 
 // 编辑站点
@@ -232,17 +235,17 @@ async function editSite() {
     {
       type: 'input',
       name: 'url',
-      message: '订阅页面 URL:',
+      message: '订阅页面网址:',
       default: site.url,
     },
     {
       type: 'list',
       name: 'extractionMode',
-      message: '提取模式:',
+      message: '获取方式:',
       choices: [
-        { name: '1. API 模式', value: 'api' },
-        { name: '2. DOM 模式', value: 'dom' },
-        { name: '3. 剪贴板模式', value: 'clipboard' },
+        { name: '1. 自动获取', value: 'api' },
+        { name: '2. 网页解析', value: 'dom' },
+        { name: '3. 手动复制', value: 'clipboard' },
       ],
       default: site.extractionMode,
     },
@@ -298,16 +301,21 @@ async function viewConfig() {
   const config = configManager.getConfig();
 
   console.log(chalk.cyan('\n📋 当前配置:\n'));
-  console.log(chalk.white(`Clash 配置路径: ${config.clash?.configPath || '未设置'}`));
-  console.log(chalk.white(`站点数量: ${config.sites.length}\n`));
+  console.log(chalk.white(`Clash 配置文件: ${config.clash?.configPath || '未设置'}`));
+  console.log(chalk.white(`订阅站点数量: ${config.sites.length}\n`));
 
   if (config.sites.length > 0) {
     console.log(chalk.cyan('站点列表:'));
     config.sites.forEach((site: SiteConfig, index: number) => {
       console.log(chalk.white(`\n${index + 1}. ${site.name || site.id}`));
-      console.log(chalk.gray(`   ID: ${site.id}`));
-      console.log(chalk.gray(`   URL: ${site.url}`));
-      console.log(chalk.gray(`   模式: ${site.extractionMode || 'api'}`));
+      console.log(chalk.gray(`   网址: ${site.url}`));
+      const modeText =
+        site.extractionMode === 'api'
+          ? '自动获取'
+          : site.extractionMode === 'dom'
+            ? '网页解析'
+            : '手动复制';
+      console.log(chalk.gray(`   获取方式: ${modeText}`));
       console.log(chalk.gray(`   订阅地址: ${site.subscriptionUrl || '未获取'}`));
     });
   }
@@ -322,7 +330,7 @@ async function handleStatus() {
 
   console.log(chalk.cyan('\n📊 系统状态:\n'));
   console.log(chalk.white(`✅ Clash 配置: ${config.clash?.configPath || '❌ 未设置'}`));
-  console.log(chalk.white(`✅ 站点数量: ${config.sites.length}`));
+  console.log(chalk.white(`✅ 订阅站点: ${config.sites.length} 个`));
 
   if (config.sites.length > 0) {
     console.log(chalk.cyan('\n站点状态:'));
