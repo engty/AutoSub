@@ -32,9 +32,9 @@ async function showMainMenu() {
       name: 'action',
       message: '请选择操作：',
       choices: [
-        { name: '1. 更新订阅', value: 'update' },
-        { name: '2. 配置管理', value: 'config' },
-        { name: '3. 查看状态', value: 'status' },
+        { name: '1. 更新订阅（手动更新·定时更新）', value: 'update' },
+        { name: '2. 配置管理（添加·编辑·删除站点）', value: 'config' },
+        { name: '3. 查看状态（配置·站点·更新记录）', value: 'status' },
         { name: '4. 退出', value: 'exit' },
       ],
     },
@@ -351,6 +351,56 @@ async function handleStatus() {
   console.log(); // 空行
 }
 
+// 处理卸载
+async function handleUninstall(keepConfig: boolean = false) {
+  const { confirm } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'confirm',
+      message: keepConfig
+        ? '确认卸载程序？（配置文件将保留）'
+        : '确认卸载程序并删除所有数据？',
+      default: false,
+    },
+  ]);
+
+  if (!confirm) {
+    console.log(chalk.yellow('\n已取消卸载'));
+    return;
+  }
+
+  console.log(chalk.cyan('\n开始卸载...\n'));
+
+  // 导入必要的模块
+  const { default: fs } = await import('fs-extra');
+  const { default: path } = await import('path');
+  const { default: os } = await import('os');
+
+  const configDir = path.join(os.homedir(), '.autosub');
+
+  try {
+    if (!keepConfig && fs.existsSync(configDir)) {
+      // 删除配置目录
+      fs.removeSync(configDir);
+      console.log(chalk.green(`✓ 已删除配置目录: ${configDir}`));
+    } else if (keepConfig) {
+      console.log(chalk.yellow(`✓ 配置文件已保留: ${configDir}`));
+    }
+
+    console.log(chalk.cyan('\n请手动执行以下命令完成卸载:\n'));
+    console.log(chalk.white('  全局安装的用户:'));
+    console.log(chalk.gray('    npm uninstall -g clash-autosub\n'));
+    console.log(chalk.white('  或清理 npx 缓存:'));
+    console.log(chalk.gray('    npx clear-npx-cache\n'));
+
+    if (!keepConfig) {
+      console.log(chalk.green('✓ 数据清理完成！'));
+    }
+  } catch (error: any) {
+    console.log(chalk.red(`\n❌ 清理失败: ${error.message}`));
+  }
+}
+
 // 显示更新结果
 function displayUpdateResults(results: any[]) {
   console.log(chalk.cyan('\n📊 更新结果:\n'));
@@ -408,6 +458,13 @@ cli
   .command('status', '查看状态')
   .action(async () => {
     await handleStatus();
+  });
+
+cli
+  .command('uninstall', '卸载并清理数据')
+  .option('--keep-config', '保留配置文件')
+  .action(async (options) => {
+    await handleUninstall(options.keepConfig);
   });
 
 cli.version('1.0.0');
