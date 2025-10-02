@@ -1,0 +1,76 @@
+{
+  "name": "autosub",
+  "version": "1.0.0",
+  "description": "AutoSub 是一个基于 Node.js + Chrome DevTools MCP 的命令行自动化工具，解决动态 VPN 订阅地址（5分钟更新）导致的手动维护负担。通过 Google 官方的 Chrome DevTools MCP Server，实现用户手动登录后自动捕获凭证（Cookie + Token + Storage），并更新 Clash 配置文件。",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "autosub": "bin/autosub.js"
+  },
+  "scripts": {
+    "dev": "tsx src/cli/index.ts",
+    "build": "tsup",
+    "start": "node dist/index.js",
+    "test": "vitest",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "vpn",
+    "subscription",
+    "automation",
+    "clash",
+    "cli",
+    "mcp",
+    "chrome-devtools",
+    "node.js",
+    "typescript"
+  ],
+  "author": "engty",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/engty/AutoSub.git"
+  },
+  "bugs": {
+    "url": "https://github.com/engty/AutoSub/issues"
+  },
+  "homepage": "https://github.com/engty/AutoSub#readme",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.2",
+    "axios": "^1.12.2",
+    "cac": "^6.7.14",
+    "chalk": "^5.6.2",
+    "cli-table3": "^0.6.5",
+    "crypto-js": "^4.2.0",
+    "fs-extra": "^11.3.2",
+    "inquirer": "^9.3.8",
+    "js-yaml": "^4.1.0",
+    "ora": "^8.2.0"
+  },
+  "devDependencies": {
+    "@types/crypto-js": "^4.2.2",
+    "@types/fs-extra": "^11.0.4",
+    "@types/inquirer": "^9.0.9",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^20.19.19",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.1",
+    "prettier": "^3.6.2",
+    "tsup": "^8.5.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^1.6.1"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "README.md",
+    "LICENSE"
+  ]
+}
