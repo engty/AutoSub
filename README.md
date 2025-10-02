@@ -1,4 +1,4 @@
-# AutoSub
+# Clash AutoSub
 
 > 基于 Node.js + Chrome DevTools MCP 的 VPN 订阅自动化工具
 
@@ -8,7 +8,7 @@
 
 ## 📋 简介
 
-AutoSub 是一个命令行自动化工具，解决动态 VPN 订阅地址（5分钟更新）导致的手动维护负担。通过 Google 官方的 Chrome DevTools MCP Server，实现用户手动登录后自动捕获凭证（Cookie + Token + Storage），并更新 Clash 配置文件。
+Clash AutoSub 是一个命令行自动化工具，解决动态 VPN 订阅地址（5分钟更新）导致的手动维护负担。通过 Google 官方的 Chrome DevTools MCP Server，实现用户手动登录后自动捕获凭证（Cookie + Token + Storage），并更新 Clash 配置文件。
 
 ### 核心特性
 
@@ -26,20 +26,22 @@ AutoSub 是一个命令行自动化工具，解决动态 VPN 订阅地址（5分
 
 ```bash
 # 使用 npx（推荐）
-npx autosub
+npx clash-autosub
 
 # 或全局安装
-npm install -g autosub
+npm install -g clash-autosub
 ```
 
 ### 基本使用
 
 ```bash
-# 打开交互式菜单
+# 打开交互式菜单（两种命令都可以）
+clash-autosub
+# 或
 autosub
 
 # 配置订阅站点
-autosub setup
+clash-autosub setup
 
 # 手动更新订阅
 autosub update
@@ -65,7 +67,7 @@ autosub status
 ## 🏗️ 项目结构
 
 ```
-AutoSub/
+clash-autosub/
 ├── bin/                    # CLI 入口
 ├── src/
 │   ├── cli/               # CLI 主程序
@@ -95,8 +97,8 @@ AutoSub/
 
 ```bash
 # 克隆仓库
-git clone https://github.com/engty/AutoSub.git
-cd AutoSub
+git clone https://github.com/engty/clash-autosub.git
+cd clash-autosub
 
 # 安装依赖
 npm install

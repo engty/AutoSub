@@ -1,11 +1,12 @@
 {
-  "name": "autosub",
+  "name": "clash-autosub",
   "version": "1.0.0",
-  "description": "AutoSub 是一个基于 Node.js + Chrome DevTools MCP 的命令行自动化工具，解决动态 VPN 订阅地址（5分钟更新）导致的手动维护负担。通过 Google 官方的 Chrome DevTools MCP Server，实现用户手动登录后自动捕获凭证（Cookie + Token + Storage），并更新 Clash 配置文件。",
+  "description": "Clash AutoSub 是一个基于 Node.js + Chrome DevTools MCP 的命令行自动化工具，解决动态 VPN 订阅地址（5分钟更新）导致的手动维护负担。通过 Google 官方的 Chrome DevTools MCP Server，实现用户手动登录后自动捕获凭证（Cookie + Token + Storage），并更新 Clash 配置文件。",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "autosub": "bin/autosub.js"
+    "clash-autosub": "bin/clash-autosub.js",
+    "autosub": "bin/clash-autosub.js"
   },
   "scripts": {
     "dev": "tsx src/cli/index.ts",
@@ -34,12 +35,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/engty/AutoSub.git"
+    "url": "git+https://github.com/engty/clash-autosub.git"
   },
   "bugs": {
-    "url": "https://github.com/engty/AutoSub/issues"
+    "url": "https://github.com/engty/clash-autosub/issues"
   },
-  "homepage": "https://github.com/engty/AutoSub#readme",
+  "homepage": "https://github.com/engty/clash-autosub#readme",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.18.2",
     "axios": "^1.12.2",

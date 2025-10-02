@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf-8'));
 
-const cli = cac('autosub');
+const cli = cac('clash-autosub');
 
 cli
   .version(pkg.version)
@@ -18,7 +18,7 @@ cli
 cli
   .command('', '打开交互式菜单（默认）')
   .action(async () => {
-    console.log(chalk.cyan('🚀 AutoSub - VPN 订阅自动化工具'));
+    console.log(chalk.cyan('🚀 Clash AutoSub - VPN 订阅自动化工具'));
     console.log(chalk.gray('交互式菜单开发中...'));
   });
 
