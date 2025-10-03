@@ -92,7 +92,10 @@ export class LoginDetector {
       console.log(`\n✅ 登录成功! (检测方式: ${method})\n`);
 
       // 等待一小段时间确保数据加载完成
-      await page.waitForTimeout(2000);
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // 尝试关闭可能的广告弹窗
+      await this.closeAnyModals(page);
     } catch (error) {
       logger.error('登录检测失败', error);
       throw error;
@@ -199,7 +202,7 @@ export class LoginDetector {
       if (cookies.some((c) => c.name === cookieName)) {
         return;
       }
-      await page.waitForTimeout(500);
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
     throw new Error('Cookie检测超时');
@@ -210,30 +213,137 @@ export class LoginDetector {
    */
   private async detectByCommonPatterns(page: Page, timeout: number): Promise<string> {
     const commonSelectors = [
+      // 用户相关
       { selector: '[class*="user"]', desc: '用户信息' },
       { selector: '[class*="avatar"]', desc: '用户头像' },
       { selector: '[class*="profile"]', desc: '个人资料' },
+      { selector: '[id*="user"]', desc: '用户ID元素' },
+      // 控制台/仪表盘
       { selector: '[class*="dashboard"]', desc: '控制台' },
+      { selector: '[class*="panel"]', desc: '面板' },
+      { selector: '[class*="console"]', desc: '控制台' },
+      // 退出/登出按钮
       { selector: '[href*="logout"]', desc: '退出按钮' },
-      { selector: '[href*="signout"]', desc: '退出按钮' },
+      { selector: '[href*="signout"]', desc: '登出按钮' },
+      { selector: 'a[href*="sign-out"]', desc: '退出链接' },
+      // 订阅/节点相关(VPN 特有)
+      { selector: '[class*="subscription"]', desc: '订阅信息' },
+      { selector: '[class*="node"]', desc: '节点列表' },
+      { selector: '[class*="traffic"]', desc: '流量信息' },
     ];
+
+    logger.debug('开始通用模式检测...');
 
     const promises = commonSelectors.map(({ selector, desc }) =>
       page
         .waitForSelector(selector, { timeout, visible: true })
-        .then(() => desc)
-        .catch(() => null)
+        .then(() => {
+          logger.debug(`✓ 检测成功: ${desc}`);
+          return desc;
+        })
+        .catch(() => {
+          logger.debug(`✗ 检测失败: ${desc}`);
+          return null;
+        })
     );
+
+    // 额外添加 URL hash 变化检测(适用于 SPA)
+    const hashChangePromise = this.detectHashChange(page, timeout)
+      .then(() => 'URL Hash变化')
+      .catch(() => null);
 
     const results = await Promise.race([
       ...promises,
+      hashChangePromise,
       new Promise<null>((resolve) => setTimeout(() => resolve(null), timeout)),
     ]);
 
     if (results) {
+      logger.info(`✓ 通用检测成功: ${results}`);
       return results;
     }
 
+    // 最后尝试:获取页面信息用于调试
+    const currentUrl = page.url();
+    const pageTitle = await page.title();
+    logger.error(`登录检测失败 - URL: ${currentUrl}, 标题: ${pageTitle}`);
+
+    // 尝试获取页面中所有可见的文本,看看是否包含登录成功的迹象
+    const bodyText = await page.evaluate(() => document.body.innerText);
+    logger.debug(`页面文本(前200字符): ${bodyText.substring(0, 200)}`);
+
     throw new Error('未检测到登录完成');
+  }
+
+  /**
+   * 检测 Hash 变化(适用于 SPA 应用)
+   */
+  private async detectHashChange(page: Page, timeout: number): Promise<void> {
+    const initialHash = await page.evaluate(() => window.location.hash);
+    logger.debug(`初始 Hash: ${initialHash}`);
+
+    // 如果初始 hash 包含 login,等待它变化
+    if (initialHash.includes('login')) {
+      logger.debug('等待 Hash 从 login 变化...');
+      await page.waitForFunction(
+        (oldHash: string) => {
+          const currentHash = window.location.hash;
+          const changed = currentHash !== oldHash && !currentHash.includes('login');
+          if (changed) {
+            console.log(`Hash 已变化: ${oldHash} -> ${currentHash}`);
+          }
+          return changed;
+        },
+        { timeout },
+        initialHash
+      );
+      const newHash = await page.evaluate(() => window.location.hash);
+      logger.debug(`✓ Hash 已变化: ${initialHash} -> ${newHash}`);
+    } else {
+      logger.debug(`Hash 不包含 login (当前: ${initialHash}),跳过此检测`);
+      throw new Error('Hash 不包含 login,跳过此检测');
+    }
+  }
+
+  /**
+   * 关闭可能的广告/弹窗
+   */
+  private async closeAnyModals(page: Page): Promise<void> {
+    try {
+      logger.debug('尝试关闭广告弹窗...');
+
+      // 方法1: 按 ESC 键关闭弹窗
+      await page.keyboard.press('Escape');
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // 方法2: 尝试查找并点击常见的关闭按钮
+      const closeSelectors = [
+        'button[class*="close"]',
+        '[class*="modal"] [class*="close"]',
+        '[class*="dialog"] [class*="close"]',
+        '.modal-close',
+        '.close-btn',
+        '[aria-label="Close"]',
+        '[aria-label="关闭"]',
+      ];
+
+      for (const selector of closeSelectors) {
+        try {
+          const closeButton = await page.$(selector);
+          if (closeButton) {
+            await closeButton.click();
+            logger.debug(`✓ 点击关闭按钮: ${selector}`);
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            break;
+          }
+        } catch {
+          // 忽略错误,继续尝试下一个
+        }
+      }
+
+      logger.debug('✓ 广告弹窗处理完成');
+    } catch (error) {
+      logger.debug('处理广告弹窗时出错(忽略):', error);
+    }
   }
 }

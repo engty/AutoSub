@@ -1,8 +1,9 @@
 import yaml from 'js-yaml';
-import { ClashAutoSubConfig, SiteConfig, ErrorCode, AutoSubError } from '../types/index.js';
+import { ClashAutoSubConfig, SiteConfig, ErrorCode, AutoSubError, AIConfig } from '../types/index.js';
 import { FileUtil, CONFIG_FILE } from '../utils/file.js';
 import { logger } from '../utils/logger.js';
 import { DEFAULT_CONFIG, validateConfig } from './schema.js';
+import { AIConfigManager } from '../ai/ai-config.js';
 
 /**
  * 配置管理器类
@@ -192,6 +193,50 @@ export class ConfigManager {
       this.config.settings.updateInterval = interval;
     }
     logger.info(`自动更新: ${enabled ? '启用' : '禁用'}`);
+  }
+
+  /**
+   * 获取 AI 配置
+   */
+  getAIConfig(): AIConfig | undefined {
+    return this.config.ai;
+  }
+
+  /**
+   * 设置 AI 配置
+   */
+  setAIConfig(aiConfig: AIConfig): void {
+    // 验证配置
+    const validation = AIConfigManager.validateConfig(aiConfig);
+    if (!validation.valid) {
+      throw new AutoSubError(
+        ErrorCode.CONFIG_SAVE_FAILED,
+        `AI 配置无效: ${validation.error}`
+      );
+    }
+
+    this.config.ai = aiConfig;
+    logger.info(`AI 配置已更新: 提供商=${aiConfig.provider}, 启用=${aiConfig.enabled}`);
+  }
+
+  /**
+   * 更新 AI 配置(部分更新)
+   */
+  updateAIConfig(updates: Partial<AIConfig>): void {
+    const currentConfig = this.config.ai || AIConfigManager.createDefaultConfig();
+    const newConfig = { ...currentConfig, ...updates };
+    this.setAIConfig(newConfig);
+  }
+
+  /**
+   * 启用/禁用 AI
+   */
+  toggleAI(enabled: boolean): void {
+    if (!this.config.ai) {
+      this.config.ai = AIConfigManager.createDefaultConfig();
+    }
+    this.config.ai.enabled = enabled;
+    logger.info(`AI 智能识别: ${enabled ? '启用' : '禁用'}`);
   }
 
   /**

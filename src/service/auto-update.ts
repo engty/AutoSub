@@ -45,14 +45,27 @@ export class AutoUpdateService {
       this.browser = new PuppeteerBrowser();
       await this.browser.launch();
 
-      // 2. 初始化各模块
-      this.apiExtractor = new PuppeteerApiExtractor(this.browser);
+      // 2. 获取 AI 配置
+      const aiConfig = this.configManager.getAIConfig();
+
+      // 3. 初始化各模块(传递 AI 配置)
+      this.apiExtractor = new PuppeteerApiExtractor(this.browser, aiConfig);
       this.validator = new SubscriptionValidator();
 
-      // 3. 初始化 Clash 更新器
+      // 4. 初始化 Clash 更新器
       const clashConfig = this.configManager.getConfig().clash;
+
+      // 如果用户未设置配置路径，使用默认路径
+      let configPath = clashConfig.configPath;
+      if (!configPath) {
+        const os = await import('os');
+        const path = await import('path');
+        configPath = path.join(os.homedir(), '.autosub', 'default.yaml');
+        logger.info(`未设置 Clash 配置路径，使用默认路径: ${configPath}`);
+      }
+
       this.clashUpdater = new ClashConfigUpdater(
-        clashConfig.configPath,
+        configPath,
         clashConfig.backupEnabled,
         clashConfig.backupCount
       );
@@ -92,6 +105,29 @@ export class AutoUpdateService {
   async updateAll(): Promise<UpdateResult[]> {
     const sites = this.configManager.getSites().filter((s) => s.enabled);
     logger.info(`开始更新 ${sites.length} 个站点`);
+
+    const results: UpdateResult[] = [];
+
+    for (const site of sites) {
+      const result = await this.processSiteUpdate(site);
+      results.push(result);
+
+      // 站点间延迟，避免请求过快
+      await this.delay(3000);
+    }
+
+    return results;
+  }
+
+  /**
+   * 更新所有有效站点(已保存订阅地址的站点)
+   */
+  async updateValidSites(): Promise<UpdateResult[]> {
+    const sites = this.configManager
+      .getSites()
+      .filter((s) => s.enabled && s.subscriptionUrl);
+
+    logger.info(`开始更新 ${sites.length} 个有效站点`);
 
     const results: UpdateResult[] = [];
 

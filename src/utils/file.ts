@@ -194,6 +194,88 @@ export class FileUtil {
   }
 
   /**
+   * 智能扫描 ~/.config 目录下的所有 Clash YAML 配置文件
+   * @returns 找到的 YAML 文件路径列表
+   */
+  static scanClashConfigFiles(): string[] {
+    const configDir = path.join(os.homedir(), '.config');
+    const clashFiles: string[] = [];
+
+    if (!fs.existsSync(configDir)) {
+      return clashFiles;
+    }
+
+    try {
+      // 扫描 ~/.config 下所有可能包含 clash 的目录
+      const entries = fs.readdirSync(configDir, { withFileTypes: true });
+
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+
+        const dirName = entry.name.toLowerCase();
+        // 匹配包含 clash 关键字的目录
+        if (dirName.includes('clash') || dirName.includes('clashx')) {
+          const clashDir = path.join(configDir, entry.name);
+          const yamlFiles = this.findYamlFilesRecursive(clashDir, 3); // 最多扫描3层
+          clashFiles.push(...yamlFiles);
+        }
+      }
+
+      // 去重并排序
+      return [...new Set(clashFiles)].sort();
+    } catch (error) {
+      logger.warn('扫描 Clash 配置文件失败:', error);
+      return clashFiles;
+    }
+  }
+
+  /**
+   * 递归查找目录下的 YAML 文件
+   * @param dir 目录路径
+   * @param maxDepth 最大递归深度
+   * @param currentDepth 当前深度
+   */
+  private static findYamlFilesRecursive(
+    dir: string,
+    maxDepth: number,
+    currentDepth: number = 0
+  ): string[] {
+    const yamlFiles: string[] = [];
+
+    if (currentDepth >= maxDepth) {
+      return yamlFiles;
+    }
+
+    try {
+      if (!fs.existsSync(dir)) {
+        return yamlFiles;
+      }
+
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+
+        if (entry.isDirectory()) {
+          // 递归扫描子目录
+          const subFiles = this.findYamlFilesRecursive(fullPath, maxDepth, currentDepth + 1);
+          yamlFiles.push(...subFiles);
+        } else if (entry.isFile()) {
+          // 检查是否是 YAML 文件
+          const ext = path.extname(entry.name).toLowerCase();
+          if (ext === '.yaml' || ext === '.yml') {
+            yamlFiles.push(fullPath);
+          }
+        }
+      }
+    } catch (error) {
+      // 忽略权限错误等
+    }
+
+    return yamlFiles;
+  }
+
+  /**
    * 列出目录中的文件
    */
   static listFiles(dirPath: string, ext?: string): string[] {

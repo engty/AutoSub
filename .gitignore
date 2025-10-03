@@ -61,3 +61,6 @@ coverage/
 .parcel-cache/
 .next/
 .nuxt/
+# 用户配置文件(包含敏感信息)
+.autosub/
+config.yaml

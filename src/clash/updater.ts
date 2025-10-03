@@ -158,6 +158,12 @@ export class ClashConfigUpdater {
    */
   loadConfig(): ClashFullConfig {
     try {
+      // 如果配置文件不存在，返回默认配置
+      if (!FileUtil.exists(this.configPath)) {
+        logger.info(`配置文件不存在，使用默认配置: ${this.configPath}`);
+        return this.createDefaultConfig();
+      }
+
       const content = FileUtil.readFile(this.configPath);
       const config = yaml.load(content) as ClashFullConfig;
 
@@ -173,6 +179,40 @@ export class ClashConfigUpdater {
         error
       );
     }
+  }
+
+  /**
+   * 创建默认配置
+   */
+  private createDefaultConfig(): ClashFullConfig {
+    return {
+      port: 7890,
+      'socks-port': 7891,
+      'allow-lan': false,
+      mode: 'rule',
+      'log-level': 'info',
+      'external-controller': '127.0.0.1:9090',
+      proxies: [],
+      'proxy-groups': [
+        {
+          name: '🚀 节点选择',
+          type: 'select',
+          proxies: ['DIRECT'],
+        },
+        {
+          name: '♻️ 自动选择',
+          type: 'url-test',
+          proxies: [],
+          url: 'http://www.gstatic.com/generate_204',
+          interval: 300,
+        },
+      ],
+      rules: [
+        'DOMAIN-SUFFIX,cn,DIRECT',
+        'GEOIP,CN,DIRECT',
+        'MATCH,🚀 节点选择',
+      ],
+    };
   }
 
   /**
@@ -205,15 +245,21 @@ export class ClashConfigUpdater {
     try {
       logger.info('开始合并配置');
 
-      // 1. 读取本地配置
+      // 1. 确保目录存在
+      const path = await import('path');
+      const fs = await import('fs-extra');
+      const dir = path.dirname(this.configPath);
+      await fs.ensureDir(dir);
+
+      // 2. 读取本地配置（如果不存在会返回默认配置）
       const localConfig = this.loadConfig();
 
-      // 2. 创建备份
-      if (this.backupEnabled) {
+      // 3. 创建备份（仅当文件存在时）
+      if (this.backupEnabled && FileUtil.exists(this.configPath)) {
         FileUtil.createBackup(this.configPath, '合并前备份');
       }
 
-      // 3. 合并：使用订阅的代理，保留本地的规则和设置
+      // 4. 合并：使用订阅的代理，保留本地的规则和设置
       const mergedConfig: ClashFullConfig = {
         ...localConfig, // 保留本地设置
         proxies: subscriptionConfig.proxies || [], // 使用订阅代理
@@ -223,7 +269,7 @@ export class ClashConfigUpdater {
         ),
       };
 
-      // 4. 写入配置
+      // 5. 写入配置
       const yamlContent = yaml.dump(mergedConfig, {
         indent: 2,
         lineWidth: -1,
@@ -232,7 +278,7 @@ export class ClashConfigUpdater {
 
       FileUtil.writeFile(this.configPath, yamlContent);
 
-      logger.info('✓ 配置合并成功');
+      logger.info(`✓ 配置合并成功，已写入: ${this.configPath}`);
     } catch (error) {
       throw new AutoSubError(
         ErrorCode.CLASH_CONFIG_UPDATE_FAILED,

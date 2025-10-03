@@ -94,8 +94,12 @@ export class SubscriptionValidator {
           'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         },
+        responseType: 'text', // 强制以文本形式接收
         validateStatus: (status) => status === 200,
       });
+
+      logger.debug(`订阅响应类型: ${typeof response.data}`);
+      logger.debug(`订阅内容前100字符: ${String(response.data).substring(0, 100)}`);
 
       return response;
     } catch (error) {
@@ -119,23 +123,38 @@ export class SubscriptionValidator {
   /**
    * 解析订阅内容
    */
-  private parseSubscriptionContent(content: string): any {
+  private parseSubscriptionContent(content: any): any {
     try {
-      // 尝试 YAML 解析
-      const config = yaml.load(content);
-
-      if (!config || typeof config !== 'object') {
-        return null;
+      // 如果 content 已经是对象，直接返回
+      if (typeof content === 'object' && content !== null) {
+        logger.debug('订阅内容已经是对象格式');
+        return content;
       }
 
-      return config;
+      // 如果是字符串，尝试 YAML 解析
+      if (typeof content === 'string') {
+        logger.debug(`订阅内容是字符串，长度: ${content.length}`);
+        const config = yaml.load(content);
+
+        if (!config || typeof config !== 'object') {
+          return null;
+        }
+
+        return config;
+      }
+
+      logger.warn(`未知的订阅内容类型: ${typeof content}`);
+      return null;
     } catch (error) {
       logger.debug('YAML 解析失败', error);
 
       // 尝试 Base64 解码（部分订阅是 Base64 编码的）
       try {
-        const decoded = Buffer.from(content, 'base64').toString('utf-8');
-        return yaml.load(decoded);
+        if (typeof content === 'string') {
+          const decoded = Buffer.from(content, 'base64').toString('utf-8');
+          return yaml.load(decoded);
+        }
+        return null;
       } catch {
         return null;
       }

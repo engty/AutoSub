@@ -59,6 +59,33 @@ export interface ClashAutoSubConfig {
     autoUpdate: boolean;
     updateInterval: string;
   };
+  ai?: AIConfig; // AI 配置(可选)
+}
+
+/**
+ * AI 提供商类型
+ */
+export type AIProvider = 'deepseek' | 'openrouter' | 'custom';
+
+/**
+ * AI 提供商配置详情
+ */
+export interface AIProviderConfig {
+  name: string; // 提供商名称
+  apiUrl: string; // API 基础地址
+  defaultModel: string; // 默认模型
+  requiresApiKey: boolean; // 是否需要 API 密钥
+}
+
+/**
+ * AI 配置
+ */
+export interface AIConfig {
+  enabled: boolean; // 是否启用 AI 识别
+  provider: AIProvider; // AI 提供商
+  apiKey: string; // API 密钥
+  model?: string; // 模型名称(可选,使用默认模型)
+  customApiUrl?: string; // 自定义 API 地址(仅 provider='custom' 时使用)
 }
 
 /**
