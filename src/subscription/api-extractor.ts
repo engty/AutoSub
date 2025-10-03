@@ -1,5 +1,4 @@
 import { NetworkListener } from '../mcp/network.js';
-import { TokenExtractor } from '../mcp/token.js';
 import { PageManager } from '../mcp/page.js';
 import { logger } from '../utils/logger.js';
 import { ErrorCode, AutoSubError, SiteConfig, APIPattern } from '../types/index.js';
@@ -10,16 +9,13 @@ import { ErrorCode, AutoSubError, SiteConfig, APIPattern } from '../types/index.
  */
 export class ApiSubscriptionExtractor {
   private networkListener: NetworkListener;
-  private tokenExtractor: TokenExtractor;
   private pageManager: PageManager;
 
   constructor(
     networkListener: NetworkListener,
-    tokenExtractor: TokenExtractor,
     pageManager: PageManager
   ) {
     this.networkListener = networkListener;
-    this.tokenExtractor = tokenExtractor;
     this.pageManager = pageManager;
   }
 
@@ -41,10 +37,16 @@ export class ApiSubscriptionExtractor {
 
       // 1. 通过配置的 API 模式匹配
       if (siteConfig.selector?.api) {
-        const url = await this.extractByPattern(siteConfig.selector.api);
-        if (url) {
-          logger.info(`✓ 通过 API 模式找到订阅地址: ${url}`);
-          return url;
+        const patterns = Array.isArray(siteConfig.selector.api)
+          ? siteConfig.selector.api
+          : [siteConfig.selector.api];
+
+        for (const pattern of patterns) {
+          const url = await this.extractByPattern(pattern);
+          if (url) {
+            logger.info(`✓ 通过 API 模式找到订阅地址: ${url}`);
+            return url;
+          }
         }
       }
 
@@ -100,7 +102,13 @@ export class ApiSubscriptionExtractor {
               : request.responseBody;
 
           // 根据字段路径提取
-          const url = this.extractFieldFromObject(body, apiPattern.field);
+          const targetField = apiPattern.field ?? apiPattern.responseKey;
+
+          if (!targetField) {
+            continue;
+          }
+
+          const url = this.extractFieldFromObject(body, targetField);
 
           if (url && this.isValidSubscriptionUrl(url)) {
             return url;

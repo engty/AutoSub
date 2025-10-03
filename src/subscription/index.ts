@@ -6,4 +6,4 @@ export { DomSubscriptionExtractor } from './dom-extractor.js';
 
 // 订阅验证
 export { SubscriptionValidator } from './validator.js';
-export type { ValidationResult } from './validator.js';
+export type { ValidationResult } from '../types/index.js';

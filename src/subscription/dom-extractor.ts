@@ -31,10 +31,16 @@ export class DomSubscriptionExtractor {
 
       // 1. 通过配置的 DOM 选择器提取
       if (siteConfig.selector?.dom) {
-        const url = await this.extractBySelector(siteConfig.selector.dom);
-        if (url) {
-          logger.info(`✓ 通过 DOM 选择器找到订阅地址: ${url}`);
-          return url;
+        const selectors = Array.isArray(siteConfig.selector.dom)
+          ? siteConfig.selector.dom
+          : [siteConfig.selector.dom];
+
+        for (const selectorConfig of selectors) {
+          const url = await this.extractBySelector(selectorConfig);
+          if (url) {
+            logger.info(`✓ 通过 DOM 选择器找到订阅地址: ${url}`);
+            return url;
+          }
         }
       }
 
@@ -70,22 +76,31 @@ export class DomSubscriptionExtractor {
       const snapshot = await this.takeSnapshot();
 
       // 查找匹配的元素
-      const element = this.findElementInSnapshot(snapshot, domSelector.selector);
+      const selector = domSelector.selector ?? domSelector.value;
+
+      if (!selector) {
+        logger.warn('DOM 选择器缺少 selector 或 value 字段');
+        return null;
+      }
+
+      const element = this.findElementInSnapshot(snapshot, selector);
 
       if (!element) {
-        logger.debug(`DOM 选择器未找到元素: ${domSelector.selector}`);
+        logger.debug(`DOM 选择器未找到元素: ${selector}`);
         return null;
       }
 
       // 根据属性提取 URL
       let url: string | null = null;
 
-      if (domSelector.attribute === 'text') {
+      const attribute = domSelector.attribute ?? 'href';
+
+      if (attribute === 'text') {
         url = element.text || null;
-      } else if (domSelector.attribute === 'href') {
+      } else if (attribute === 'href') {
         url = element.href || null;
-      } else if (domSelector.attribute) {
-        url = element.attributes?.[domSelector.attribute] || null;
+      } else if (attribute) {
+        url = element.attributes?.[attribute] || null;
       }
 
       if (url && this.isValidSubscriptionUrl(url)) {

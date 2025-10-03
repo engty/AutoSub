@@ -1,5 +1,5 @@
 import { PuppeteerBrowser } from '../puppeteer/browser.js';
-import { PuppeteerNetworkListener, CapturedRequest } from '../puppeteer/network.js';
+import { PuppeteerNetworkListener } from '../puppeteer/network.js';
 import { LoginDetector } from '../puppeteer/login-detector.js';
 import { DeepSeekVisionClient } from '../ai/deepseek-vision.js';
 import { AIConfigManager } from '../ai/ai-config.js';
@@ -122,10 +122,16 @@ export class PuppeteerApiExtractor {
   private async extractSubscriptionUrl(siteConfig: SiteConfig): Promise<string | null> {
     // 1. 如果配置了 API 模式,优先使用
     if (siteConfig.selector?.api) {
-      const url = this.extractByPattern(siteConfig.selector.api);
-      if (url) {
-        logger.debug(`通过配置的 API 模式找到: ${url}`);
-        return url;
+      const patterns = Array.isArray(siteConfig.selector.api)
+        ? siteConfig.selector.api
+        : [siteConfig.selector.api];
+
+      for (const pattern of patterns) {
+        const url = this.extractByPattern(pattern);
+        if (url) {
+          logger.debug(`通过配置的 API 模式找到: ${url}`);
+          return url;
+        }
       }
     }
 
@@ -157,7 +163,13 @@ export class PuppeteerApiExtractor {
             ? JSON.parse(request.responseBody)
             : request.responseBody;
 
-        const url = this.extractFieldFromObject(body, apiPattern.field);
+        const targetField = apiPattern.field ?? apiPattern.responseKey;
+
+        if (!targetField) {
+          continue;
+        }
+
+        const url = this.extractFieldFromObject(body, targetField);
 
         if (url && this.isValidSubscriptionUrl(url)) {
           return url;
@@ -535,7 +547,13 @@ export class PuppeteerApiExtractor {
         if (clipboardText && clipboardText.trim()) {
           logger.info(`✓ 第 ${i + 1} 次尝试成功读取剪贴板`);
           logger.debug(`剪贴板内容: ${clipboardText}`);
-          return clipboardText.trim();
+
+          const url = this.extractUrlFromText(clipboardText.trim());
+          if (url) {
+            return url;
+          }
+
+          logger.debug('剪贴板内容未提取出 URL，继续重试');
         }
 
         logger.debug(`第 ${i + 1}/${maxRetries} 次尝试: 剪贴板为空,继续重试...`);
@@ -545,6 +563,21 @@ export class PuppeteerApiExtractor {
       return null;
     } catch (error) {
       logger.warn('读取剪贴板失败:', error);
+      return null;
+    }
+  }
+
+  private extractUrlFromText(text: string): string | null {
+    const match = text.match(/https?:\/{2}[^\s'"<>]+/i);
+    if (!match) {
+      return null;
+    }
+
+    const cleaned = match[0].replace(/[)\]\.,;]+$/g, '');
+    try {
+      const parsed = new URL(cleaned);
+      return parsed.toString();
+    } catch {
       return null;
     }
   }

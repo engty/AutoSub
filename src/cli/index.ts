@@ -5,7 +5,7 @@ import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { AutoUpdateService } from '../service/index.js';
-import { ConfigManager } from '../config/manager.js';
+import { ConfigManager, getConfigManager } from '../config/manager.js';
 import { createEmptySiteConfig } from '../config/schema.js';
 import { SiteConfig, AIConfig } from '../types/index.js';
 import { logger } from '../utils/logger.js';
@@ -44,17 +44,12 @@ const cli = cac('clash-autosub');
 
 // 安全加载配置的辅助函数
 function safeLoadConfig(): ConfigManager {
-  const configManager = new ConfigManager();
-
   try {
-    configManager.load();
+    return getConfigManager();
   } catch (error: any) {
-    // 如果配置加载失败，使用默认配置并保存
     logger.warn('配置加载失败，初始化默认配置:', error.message);
-    configManager.save(); // 保存默认配置
+    return ConfigManager.initialize();
   }
-
-  return configManager;
 }
 
 // 清屏函数

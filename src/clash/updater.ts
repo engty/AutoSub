@@ -264,7 +264,7 @@ export class ClashConfigUpdater {
         ...localConfig, // 保留本地设置
         proxies: subscriptionConfig.proxies || [], // 使用订阅代理
         'proxy-groups': this.mergeProxyGroups(
-          localConfig['proxy-groups'],
+          localConfig['proxy-groups'] || [],
           subscriptionConfig.proxies || []
         ),
       };

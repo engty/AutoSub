@@ -2,6 +2,7 @@ import fs from 'fs-extra';
 import path from 'path';
 import os from 'os';
 import { BackupMetadata } from '../types/index.js';
+import { logger } from './logger.js';
 
 /**
  * 配置目录路径

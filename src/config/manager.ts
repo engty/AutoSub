@@ -271,7 +271,16 @@ let configManagerInstance: ConfigManager | null = null;
 export function getConfigManager(): ConfigManager {
   if (!configManagerInstance) {
     configManagerInstance = new ConfigManager();
-    configManagerInstance.load();
   }
+
+  try {
+    configManagerInstance.load();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.warn(`配置加载失败，重新初始化默认配置: ${message}`);
+    configManagerInstance = new ConfigManager();
+    configManagerInstance.save();
+  }
+
   return configManagerInstance;
 }

@@ -10,6 +10,7 @@ Thumbs.db
 
 # IDE 和编辑器
 .vscode/
+.serena
 .idea/
 *.swp
 *.swo

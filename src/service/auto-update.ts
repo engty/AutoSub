@@ -172,8 +172,12 @@ export class AutoUpdateService {
       // 3. 更新配置
       await this.updateSiteConfig(site, subscriptionUrl);
 
-      // 4. 更新 Clash
-      await this.clashUpdater.mergeConfig(validation.config);
+      // 4. 更新 Clash（若验证返回可用配置）
+      if (validation.config) {
+        await this.clashUpdater.mergeConfig(validation.config);
+      } else {
+        logger.info('订阅内容未提供 Clash 配置，跳过合并');
+      }
 
       logger.info(`✓ 站点更新成功: ${site.name}`);
 

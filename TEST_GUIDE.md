@@ -18,7 +18,7 @@ cat ~/.autosub/config.yaml
 ai:
   enabled: true
   provider: deepseek
-  apiKey: sk-a18863b846854e8e8a84b0fecd7cebc0
+  apiKey: sk-xxxx
   model: deepseek-chat
 ```
 
@@ -169,7 +169,7 @@ LOG_LEVEL=debug node dist/index.js update tangguo
 # 检查 AI API 是否正常
 curl -X POST https://api.deepseek.com/chat/completions \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer sk-a18863b846854e8e8a84b0fecd7cebc0" \
+  -H "Authorization: Bearer sk-xxxx" \
   -d '{"model":"deepseek-chat","messages":[{"role":"user","content":"Hello"}]}'
 ```
 

@@ -14,8 +14,8 @@ export interface LoginDetectionConfig {
  * 站点选择器配置(简化版)
  */
 export interface SiteSelectors {
-  api?: APIPattern; // API 模式配置
-  dom?: DOMSelector[]; // DOM 选择器配置
+  api?: APIPattern | APIPattern[]; // API 模式配置
+  dom?: DOMSelector | DOMSelector[]; // DOM 选择器配置
 }
 
 /**
@@ -110,10 +110,11 @@ export interface CapturedCredentials {
  */
 export interface ValidationResult {
   valid: boolean;
-  httpStatus?: number;
-  isYaml?: boolean;
   nodeCount?: number;
+  httpStatus?: number;
+  warning?: string;
   error?: string;
+  config?: any;
 }
 
 /**
@@ -144,6 +145,15 @@ export interface MCPNetworkRequest {
 }
 
 /**
+ * MCP 页面元信息
+ */
+export interface MCPPage {
+  pageIdx: number;
+  url: string;
+  title?: string;
+}
+
+/**
  * MCP 页面快照元素
  */
 export interface MCPSnapshotElement {
@@ -168,9 +178,12 @@ export interface MCPScriptResult<T = any> {
  * DOM 选择器配置
  */
 export interface DOMSelector {
-  type: 'css' | 'xpath' | 'text';
-  value: string;
-  priority: number; // 优先级，数字越小优先级越高
+  selector?: string; // CSS 或 XPath 选择器
+  attribute?: string; // 提取的属性名称，如 href、data-*、text 等
+  description?: string; // 说明，便于调试
+  type?: 'css' | 'xpath' | 'text'; // 兼容旧字段
+  value?: string; // 兼容旧字段
+  priority?: number; // 兼容旧字段
 }
 
 /**
@@ -179,7 +192,8 @@ export interface DOMSelector {
 export interface APIPattern {
   urlPattern: string; // URL 匹配模式（正则）
   method?: 'GET' | 'POST';
-  responseKey?: string; // 订阅地址在响应中的 key
+  field?: string; // 订阅地址所在的字段路径
+  responseKey?: string; // 兼容旧字段
   tokenKey?: string; // Token 在响应中的 key
 }
 
@@ -206,6 +220,7 @@ export enum ErrorCode {
   MCP_CONNECTION_FAILED = 'MCP_CONNECTION_FAILED',
   MCP_NAVIGATION_FAILED = 'MCP_NAVIGATION_FAILED',
   MCP_SCRIPT_EXECUTION_FAILED = 'MCP_SCRIPT_EXECUTION_FAILED',
+  MCP_TOOL_CALL_FAILED = 'MCP_TOOL_CALL_FAILED',
 
   // Puppeteer 相关错误
   BROWSER_LAUNCH_FAILED = 'BROWSER_LAUNCH_FAILED',
@@ -217,6 +232,7 @@ export enum ErrorCode {
   // 凭证相关错误
   CREDENTIAL_CAPTURE_FAILED = 'CREDENTIAL_CAPTURE_FAILED',
   CREDENTIAL_DECRYPT_FAILED = 'CREDENTIAL_DECRYPT_FAILED',
+  TOKEN_EXTRACTION_FAILED = 'TOKEN_EXTRACTION_FAILED',
 
   // 订阅相关错误
   SUBSCRIPTION_FETCH_FAILED = 'SUBSCRIPTION_FETCH_FAILED',
@@ -236,6 +252,7 @@ export enum ErrorCode {
   CONFIG_SAVE_FAILED = 'CONFIG_SAVE_FAILED',
   NETWORK_ERROR = 'NETWORK_ERROR',
   TIMEOUT_ERROR = 'TIMEOUT_ERROR',
+  SCRIPT_EXECUTION_FAILED = 'SCRIPT_EXECUTION_FAILED',
 }
 
 /**

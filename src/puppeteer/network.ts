@@ -1,4 +1,4 @@
-import { Page, HTTPRequest, HTTPResponse } from 'puppeteer-core';
+import { Page, HTTPResponse } from 'puppeteer-core';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -85,7 +85,7 @@ export class PuppeteerNetworkListener {
   /**
    * 判断是否应该捕获此请求
    */
-  private shouldCapture(url: string, method: string, resourceType: string): boolean {
+  private shouldCapture(url: string, _method: string, resourceType: string): boolean {
     // 只捕获 XHR 和 Fetch 请求
     if (resourceType !== 'xhr' && resourceType !== 'fetch') {
       return false;

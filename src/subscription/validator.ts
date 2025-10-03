@@ -1,21 +1,8 @@
 import axios from 'axios';
+import type { AxiosResponse } from 'axios';
 import yaml from 'js-yaml';
 import { logger } from '../utils/logger.js';
-import { ErrorCode, AutoSubError } from '../types/index.js';
-
-/**
- * 订阅验证结果
- */
-export interface ValidationResult {
-  /** 是否有效 */
-  valid: boolean;
-  /** 节点数量 */
-  nodeCount: number;
-  /** 错误信息 */
-  error?: string;
-  /** 配置内容 */
-  config?: any;
-}
+import { ErrorCode, AutoSubError, ValidationResult } from '../types/index.js';
 
 /**
  * 订阅验证器
@@ -29,56 +16,50 @@ export class SubscriptionValidator {
     try {
       logger.info(`开始验证订阅地址: ${subscriptionUrl}`);
 
-      // 1. HTTP 请求验证
       const response = await this.fetchSubscription(subscriptionUrl);
 
-      if (!response) {
-        return {
-          valid: false,
-          nodeCount: 0,
-          error: 'HTTP 请求失败',
-        };
-      }
-
-      // 2. 内容格式验证
-      const config = this.parseSubscriptionContent(response.data);
-
-      if (!config) {
-        return {
-          valid: false,
-          nodeCount: 0,
-          error: '订阅内容格式无效',
-        };
-      }
-
-      // 3. 节点数量验证
-      const nodeCount = this.countNodes(config);
-
-      if (nodeCount === 0) {
-        return {
-          valid: false,
-          nodeCount: 0,
-          error: '订阅中没有可用节点',
-        };
-      }
-
-      logger.info(`✓ 订阅验证通过，包含 ${nodeCount} 个节点`);
-
-      return {
-        valid: true,
-        nodeCount,
-        config,
+      const status = response.status;
+      const result: ValidationResult = {
+        valid: status === 200,
+        httpStatus: status,
       };
+
+      if (status === 200) {
+        logger.info('✓ 订阅地址可访问 (HTTP 200)');
+
+        const config = this.parseSubscriptionContent(response.data);
+
+        if (config) {
+          const nodeCount = this.countNodes(config);
+
+          if (nodeCount > 0) {
+            result.config = config;
+            result.nodeCount = nodeCount;
+            logger.info(`✓ 订阅包含 ${nodeCount} 个节点`);
+          } else {
+            result.nodeCount = nodeCount;
+            result.warning = '订阅节点数量无法统计，已跳过 Clash 合并';
+            logger.warn(result.warning);
+          }
+        } else if (response.data) {
+          result.warning = '订阅内容未解析，已跳过 Clash 合并';
+          logger.warn(result.warning);
+        }
+      } else {
+        result.error = `订阅地址返回状态码 ${status}`;
+        logger.error(result.error);
+      }
+
+      return result;
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
 
       logger.error('订阅验证失败', error);
 
       return {
         valid: false,
-        nodeCount: 0,
         error: errorMessage,
+        nodeCount: 0,
       };
     }
   }
@@ -86,16 +67,16 @@ export class SubscriptionValidator {
   /**
    * 获取订阅内容
    */
-  private async fetchSubscription(url: string): Promise<any> {
+  private async fetchSubscription(url: string): Promise<AxiosResponse<string>> {
     try {
-      const response = await axios.get(url, {
+      const response = await axios.get<string>(url, {
         timeout: 30000,
         headers: {
           'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         },
         responseType: 'text', // 强制以文本形式接收
-        validateStatus: (status) => status === 200,
+        validateStatus: () => true, // 始终返回响应，后续判断状态码
       });
 
       logger.debug(`订阅响应类型: ${typeof response.data}`);
@@ -224,11 +205,15 @@ export class SubscriptionValidator {
     removed: string[];
     unchanged: string[];
   } {
-    const oldNodes = new Set(
-      (oldConfig.proxies || []).map((p: any) => p.name || p.server)
+    const oldNodes = new Set<string>(
+      (oldConfig.proxies || [])
+        .map((p: any) => p.name || p.server)
+        .filter((value: unknown): value is string => typeof value === 'string')
     );
-    const newNodes = new Set(
-      (newConfig.proxies || []).map((p: any) => p.name || p.server)
+    const newNodes = new Set<string>(
+      (newConfig.proxies || [])
+        .map((p: any) => p.name || p.server)
+        .filter((value: unknown): value is string => typeof value === 'string')
     );
 
     const added: string[] = [];

@@ -171,14 +171,14 @@ export class LoginDetector {
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
-        page.removeListener('response', handler);
+        page.off('response', handler);
         reject(new Error('网络请求检测超时'));
       }, timeout);
 
       const handler = (response: any) => {
         if (pattern.test(response.url())) {
           clearTimeout(timer);
-          page.removeListener('response', handler);
+          page.off('response', handler);
           resolve();
         }
       };
