@@ -1179,18 +1179,42 @@ async function handleStatus() {
 
   if (config.sites.length > 0) {
     console.log(chalk.cyan('\n站点状态:'));
-    config.sites.forEach((site: SiteConfig) => {
+
+    for (const site of config.sites) {
       const status = site.subscriptionUrl ? '🟢 已配置' : '🔴 待配置';
       const lastUpdate = site.lastUpdate
         ? new Date(site.lastUpdate).toLocaleString('zh-CN')
         : '从未更新';
+
+      // 获取 Cookie 状态
+      const expiryInfo = await getCookieExpiryInfo(site.id);
+      const cookieStatusText = formatExpiryInfo(expiryInfo);
+      const cookieStatusColor = expiryInfo.hasExpired
+        ? chalk.red
+        : expiryInfo.needsRefresh
+          ? chalk.yellow
+          : chalk.green;
 
       console.log(chalk.white(`\n${site.name || site.id}: ${status}`));
       console.log(chalk.gray(`  最后更新: ${lastUpdate}`));
       if (site.enabled !== undefined) {
         console.log(chalk.gray(`  状态: ${site.enabled ? '已启用' : '已禁用'}`));
       }
-    });
+
+      // 显示 Cookie 状态
+      console.log(chalk.gray(`  Cookie: ${cookieStatusColor(cookieStatusText)}`));
+
+      // 显示订阅地址
+      if (site.subscriptionUrl) {
+        // 截断过长的 URL，只显示前 60 个字符
+        const displayUrl = site.subscriptionUrl.length > 60
+          ? site.subscriptionUrl.substring(0, 60) + '...'
+          : site.subscriptionUrl;
+        console.log(chalk.gray(`  订阅地址: ${displayUrl}`));
+      } else {
+        console.log(chalk.gray(`  订阅地址: ${chalk.red('未配置')}`));
+      }
+    }
   }
 
   console.log(); // 空行
