@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-10-03
+
+### ✨ 新增功能
+
+#### 查看状态功能增强
+- **订阅地址显示** - 在"查看状态"菜单中显示各站点的订阅地址
+- **Cookie 状态显示** - 在"查看状态"菜单中显示各站点的凭证有效期
+- **智能 URL 截断** - 订阅地址过长时自动截断（显示前 60 个字符）
+- **颜色状态标识** - Cookie 状态使用颜色区分（绿色/黄色/红色）
+
+#### 技术改进
+- 将 `forEach` 改为 `for...of` 循环以支持异步操作
+- 复用 `getCookieExpiryInfo` 和 `formatExpiryInfo` 函数
+- 保持与"刷新凭证"菜单一致的显示风格
+
+#### 用户体验提升
+- 用户可以直观查看所有站点的订阅地址
+- 用户可以快速了解各站点的凭证有效期
+- 支持 Storage 登录类型的正确显示
+
 ## [1.1.1] - 2025-10-03
 
 ### 🐛 重大问题修复
