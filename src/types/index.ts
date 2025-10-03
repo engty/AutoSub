@@ -37,6 +37,9 @@ export interface SiteConfig {
   enabled: boolean; // 是否启用
   loginDetection?: LoginDetectionConfig; // 登录检测配置
   selector?: SiteSelectors; // 选择器配置
+  credentialFile?: string; // 凭证文件路径
+  credentialsUpdatedAt?: string; // 凭证更新时间
+  cookieValid?: boolean; // Cookie 状态
 }
 
 /**
@@ -103,6 +106,13 @@ export interface CapturedCredentials {
   cookies: string;
   localStorage: Record<string, string>;
   tokens: any[];
+}
+
+export interface StoredCredentials {
+  cookies: Array<Record<string, any>>;
+  localStorage: Record<string, string>;
+  sessionStorage: Record<string, string>;
+  updatedAt: string;
 }
 
 /**
@@ -240,6 +250,9 @@ export enum ErrorCode {
   SUBSCRIPTION_INVALID_FORMAT = 'SUBSCRIPTION_INVALID_FORMAT',
   SUBSCRIPTION_EXTRACTION_FAILED = 'SUBSCRIPTION_EXTRACTION_FAILED',
   NETWORK_CAPTURE_FAILED = 'NETWORK_CAPTURE_FAILED',
+
+  // 用户交互取消
+  USER_CANCELLED = 'USER_CANCELLED',
 
   // Clash 配置错误
   CLASH_CONFIG_NOT_FOUND = 'CLASH_CONFIG_NOT_FOUND',

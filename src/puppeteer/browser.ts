@@ -63,9 +63,10 @@ export class PuppeteerBrowser {
   /**
    * 启动浏览器
    */
-  async launch(): Promise<void> {
+  async launch(options?: { headless?: boolean }): Promise<void> {
     try {
-      logger.info('正在启动 Chrome 浏览器...');
+      const headless = options?.headless ?? false;
+      logger.info(`正在启动 Chrome 浏览器（${headless ? '无头' : '有头'}模式）...`);
 
       const executablePath = getChromePath();
 
@@ -74,7 +75,7 @@ export class PuppeteerBrowser {
 
       this.browser = await puppeteer.launch({
         executablePath,
-        headless: false, // 显示浏览器窗口
+        headless, // 支持无头模式
         userDataDir: this.userDataDir, // 保存 Cookie
         defaultViewport: {
           width: 1280,
@@ -123,7 +124,7 @@ export class PuppeteerBrowser {
   /**
    * 导航到 URL
    */
-  async goto(url: string, waitUntil: 'load' | 'domcontentloaded' | 'networkidle0' | 'networkidle2' = 'networkidle2'): Promise<void> {
+  async goto(url: string, waitUntil: 'load' | 'domcontentloaded' | 'networkidle0' | 'networkidle2' = 'domcontentloaded'): Promise<void> {
     const page = this.getPage();
     try {
       logger.info(`导航到: ${url}`);

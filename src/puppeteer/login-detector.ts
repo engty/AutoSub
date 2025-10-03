@@ -1,6 +1,6 @@
 import { Page } from 'puppeteer-core';
 import { logger } from '../utils/logger.js';
-import { SiteConfig } from '../types/index.js';
+import { AutoSubError, ErrorCode, SiteConfig } from '../types/index.js';
 
 /**
  * 登录检测策略
@@ -28,11 +28,15 @@ export class LoginDetector {
     page: Page,
     siteConfig: SiteConfig,
     timeout: number = 120000
-  ): Promise<void> {
+  ): Promise<string> {
+    const cleanupCallbacks: Array<() => void> = [];
+
     try {
-      logger.info('等待用户登录...');
+      const effectiveTimeout = timeout;
+
+      logger.info('等待用户登录...(用户可随时关闭浏览器取消)');
       console.log('\n⏳ 请在浏览器中完成登录操作...');
-      console.log('   系统将自动检测登录完成状态\n');
+      console.log('   系统将自动检测登录完成状态，您也可以直接关闭浏览器以取消本次操作\n');
 
       const startTime = Date.now();
       const strategies = this.buildStrategies(siteConfig);
@@ -50,7 +54,7 @@ export class LoginDetector {
       // 策略2: 元素出现检测
       if (strategies.selector) {
         detectionPromises.push(
-          this.detectBySelector(page, strategies.selector, timeout).then(
+          this.detectBySelector(page, strategies.selector, effectiveTimeout).then(
             () => '用户元素出现'
           )
         );
@@ -59,7 +63,7 @@ export class LoginDetector {
       // 策略3: 网络请求检测
       if (strategies.networkRequest) {
         detectionPromises.push(
-          this.detectByNetworkRequest(page, strategies.networkRequest, timeout).then(
+          this.detectByNetworkRequest(page, strategies.networkRequest, effectiveTimeout).then(
             () => '用户API请求'
           )
         );
@@ -68,24 +72,33 @@ export class LoginDetector {
       // 策略4: Cookie 检测
       if (strategies.cookieName) {
         detectionPromises.push(
-          this.detectByCookie(page, strategies.cookieName, timeout).then(() => 'Cookie设置')
+          this.detectByCookie(page, strategies.cookieName, effectiveTimeout).then(
+            () => 'Cookie设置'
+          )
         );
       }
 
       // 通用策略: 检测常见登录后特征
       detectionPromises.push(
-        this.detectByCommonPatterns(page, timeout).then((method) => `通用检测(${method})`)
+        this.detectByCommonPatterns(page, effectiveTimeout).then((method) => `通用检测(${method})`)
       );
 
-      // 超时控制
-      const timeoutPromise = new Promise<string>((_, reject) => {
-        setTimeout(() => {
-          reject(new Error('登录检测超时,请重试'));
-        }, timeout);
+      // 浏览器关闭检测
+      const pageClosedPromise = new Promise<string>((_, reject) => {
+        const handleClose = () => {
+          reject(
+            new AutoSubError(
+              ErrorCode.USER_CANCELLED,
+              '用户关闭浏览器窗口，已取消本次登录流程'
+            )
+          );
+        };
+        page.once('close', handleClose);
+        cleanupCallbacks.push(() => page.off('close', handleClose));
       });
 
       // 竞速:任何一个策略成功即认为登录完成
-      const method = await Promise.race([...detectionPromises, timeoutPromise]);
+      const method = await Promise.race([...detectionPromises, pageClosedPromise]);
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       logger.info(`✓ 检测到登录完成(${method}) - 用时 ${elapsed}秒`);
@@ -96,9 +109,22 @@ export class LoginDetector {
 
       // 尝试关闭可能的广告弹窗
       await this.closeAnyModals(page);
+      return method;
     } catch (error) {
+      if (error instanceof AutoSubError && error.code === ErrorCode.USER_CANCELLED) {
+        logger.warn('检测到用户主动关闭浏览器，已取消本次更新');
+        throw error;
+      }
       logger.error('登录检测失败', error);
       throw error;
+    } finally {
+      cleanupCallbacks.forEach((fn) => {
+        try {
+          fn();
+        } catch {
+          // ignore
+        }
+      });
     }
   }
 

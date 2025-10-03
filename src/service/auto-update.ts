@@ -1,7 +1,7 @@
 import { PuppeteerBrowser } from '../puppeteer/index.js';
 import { PuppeteerApiExtractor } from '../subscription/puppeteer-api-extractor.js';
 import { SubscriptionValidator } from '../subscription/validator.js';
-import { ClashConfigUpdater } from '../clash/updater.js';
+import { ClashConfigUpdater, ClashUrlReplacer } from '../clash/index.js';
 import { getConfigManager, ConfigManager } from '../config/manager.js';
 import { logger } from '../utils/logger.js';
 import { ErrorCode, AutoSubError, SiteConfig } from '../types/index.js';
@@ -49,7 +49,7 @@ export class AutoUpdateService {
       const aiConfig = this.configManager.getAIConfig();
 
       // 3. 初始化各模块(传递 AI 配置)
-      this.apiExtractor = new PuppeteerApiExtractor(this.browser, aiConfig);
+      this.apiExtractor = new PuppeteerApiExtractor(this.browser, this.configManager, aiConfig);
       this.validator = new SubscriptionValidator();
 
       // 4. 初始化 Clash 更新器
@@ -190,6 +190,10 @@ export class AutoUpdateService {
         credentialsCaptured: true, // Puppeteer 自动保存 Cookie
       };
     } catch (error) {
+      if (error instanceof AutoSubError && error.code === ErrorCode.USER_CANCELLED) {
+        logger.info(`用户取消了站点更新: ${site.name}`);
+        throw error;
+      }
       const errorMessage =
         error instanceof AutoSubError
           ? error.message
@@ -216,8 +220,15 @@ export class AutoUpdateService {
       if (site.subscriptionUrl) {
         const isValid = await this.validator.quickValidate(site.subscriptionUrl);
         if (isValid) {
-          logger.info('使用已保存的订阅地址');
-          return site.subscriptionUrl;
+          // 检查凭证文件是否存在
+          const credentialsExist = await this.checkCredentialsExist(site.id);
+
+          if (credentialsExist) {
+            logger.info('使用已保存的订阅地址');
+            return site.subscriptionUrl;
+          } else {
+            logger.info('订阅地址有效但缺少凭证文件，将重新提取以保存凭证');
+          }
         }
       }
 
@@ -230,19 +241,69 @@ export class AutoUpdateService {
   }
 
   /**
+   * 检查凭证文件是否存在
+   */
+  private async checkCredentialsExist(siteId: string): Promise<boolean> {
+    try {
+      const { readCredentials } = await import('../credentials/manager.js');
+      const credentials = await readCredentials(siteId);
+
+      // 检查是否有有效的Cookie数据
+      return !!(
+        credentials &&
+        credentials.cookies &&
+        Array.isArray(credentials.cookies) &&
+        credentials.cookies.length > 0
+      );
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
    * 更新站点配置
    */
   private async updateSiteConfig(
     site: SiteConfig,
     subscriptionUrl: string
   ): Promise<void> {
+    // 保存旧的订阅 URL（用于 Clash 配置匹配）
+    const oldSubscriptionUrl = site.subscriptionUrl;
+    
+    // 更新站点配置
     this.configManager.updateSite(site.id, {
       subscriptionUrl,
       lastUpdate: new Date().toISOString(),
+      cookieValid: true,
     });
 
     this.configManager.save();
     logger.info('✓ 站点配置已更新');
+    
+    // 更新 Clash 配置文件中的订阅 URL
+    const clashConfigPath = this.configManager.getConfig().clash.configPath;
+    if (clashConfigPath) {
+      try {
+        const urlReplacer = new ClashUrlReplacer();
+        const replaced = await urlReplacer.replaceSubscriptionUrl(
+          clashConfigPath,
+          site.name,
+          oldSubscriptionUrl || null,
+          subscriptionUrl
+        );
+        
+        if (replaced) {
+          logger.info('✓ Clash 配置文件中的订阅 URL 已更新');
+        } else {
+          logger.warn('⚠ 未在 Clash 配置中找到匹配的订阅 URL，可能需要手动更新');
+        }
+      } catch (error) {
+        logger.error('更新 Clash 配置失败:', error);
+        logger.warn('⚠ 站点配置已更新，但 Clash 配置更新失败，请手动检查');
+      }
+    } else {
+      logger.info('ℹ 未配置 Clash 路径，跳过 Clash 配置更新');
+    }
   }
 
   /**

@@ -1,8 +1,10 @@
 import axios from 'axios';
 import type { AxiosResponse } from 'axios';
 import yaml from 'js-yaml';
+import https from 'https';
 import { logger } from '../utils/logger.js';
 import { ErrorCode, AutoSubError, ValidationResult } from '../types/index.js';
+import { getAIService } from '../ai/index.js';
 
 /**
  * 订阅验证器
@@ -19,35 +21,43 @@ export class SubscriptionValidator {
       const response = await this.fetchSubscription(subscriptionUrl);
 
       const status = response.status;
+      const responseData = String(response.data || '');
+
+      // 使用 AI 分析响应内容
+      const analysis = await this.analyzeResponseWithAI(responseData, status);
+
       const result: ValidationResult = {
-        valid: status === 200,
+        valid: analysis.valid,
         httpStatus: status,
       };
 
-      if (status === 200) {
-        logger.info('✓ 订阅地址可访问 (HTTP 200)');
+      if (!analysis.valid) {
+        // AI 判断为无效
+        result.error = analysis.reason || `订阅地址无效`;
+        logger.error(`✗ 订阅验证失败: ${result.error}`);
+        return result;
+      }
 
-        const config = this.parseSubscriptionContent(response.data);
+      // AI 判断为有效，继续解析配置
+      logger.info(`✓ 订阅地址验证通过 (HTTP ${status})`);
 
-        if (config) {
-          const nodeCount = this.countNodes(config);
+      const config = this.parseSubscriptionContent(response.data);
 
-          if (nodeCount > 0) {
-            result.config = config;
-            result.nodeCount = nodeCount;
-            logger.info(`✓ 订阅包含 ${nodeCount} 个节点`);
-          } else {
-            result.nodeCount = nodeCount;
-            result.warning = '订阅节点数量无法统计，已跳过 Clash 合并';
-            logger.warn(result.warning);
-          }
-        } else if (response.data) {
-          result.warning = '订阅内容未解析，已跳过 Clash 合并';
+      if (config) {
+        const nodeCount = this.countNodes(config);
+
+        if (nodeCount > 0) {
+          result.config = config;
+          result.nodeCount = nodeCount;
+          logger.info(`✓ 订阅包含 ${nodeCount} 个节点`);
+        } else {
+          result.nodeCount = nodeCount;
+          result.warning = '订阅节点数量无法统计，已跳过 Clash 合并';
           logger.warn(result.warning);
         }
-      } else {
-        result.error = `订阅地址返回状态码 ${status}`;
-        logger.error(result.error);
+      } else if (response.data) {
+        result.warning = '订阅内容未解析，已跳过 Clash 合并';
+        logger.warn(result.warning);
       }
 
       return result;
@@ -69,6 +79,11 @@ export class SubscriptionValidator {
    */
   private async fetchSubscription(url: string): Promise<AxiosResponse<string>> {
     try {
+      // 创建 HTTPS Agent 忽略 SSL 证书验证（等同于 curl -k）
+      const httpsAgent = new https.Agent({
+        rejectUnauthorized: false, // 忽略自签名证书
+      });
+
       const response = await axios.get<string>(url, {
         timeout: 30000,
         headers: {
@@ -77,8 +92,10 @@ export class SubscriptionValidator {
         },
         responseType: 'text', // 强制以文本形式接收
         validateStatus: () => true, // 始终返回响应，后续判断状态码
+        httpsAgent, // 使用自定义 HTTPS Agent
       });
 
+      logger.debug(`订阅响应状态: ${response.status}`);
       logger.debug(`订阅响应类型: ${typeof response.data}`);
       logger.debug(`订阅内容前100字符: ${String(response.data).substring(0, 100)}`);
 
@@ -182,16 +199,182 @@ export class SubscriptionValidator {
   }
 
   /**
-   * 快速验证（仅检查 HTTP 可达性）
+   * 使用 AI 分析响应内容是否有效
+   * @param responseData 响应内容（可能是JSON字符串或其他文本）
+   * @param statusCode HTTP状态码
+   * @returns 返回分析结果：{valid: boolean, reason?: string}
+   */
+  private async analyzeResponseWithAI(
+    responseData: string,
+    statusCode: number
+  ): Promise<{ valid: boolean; reason?: string }> {
+    try {
+      // 如果响应内容为空，认为无效
+      if (!responseData || responseData.trim().length === 0) {
+        return { valid: false, reason: '响应内容为空' };
+      }
+
+      // 尝试解析为 JSON
+      let jsonData: any = null;
+      let isJson = false;
+
+      try {
+        jsonData = JSON.parse(responseData);
+        isJson = true;
+      } catch {
+        // 不是JSON，可能是YAML或其他格式
+      }
+
+      // 如果是JSON，检查常见的错误模式
+      if (isJson && jsonData) {
+        // 检查明确的错误标识
+        if (jsonData.status === 'fail' || jsonData.status === 'error') {
+          return {
+            valid: false,
+            reason: `服务器返回错误: ${jsonData.message || jsonData.error || '未知错误'}`,
+          };
+        }
+
+        if (jsonData.error || jsonData.err) {
+          return {
+            valid: false,
+            reason: `错误: ${jsonData.error || jsonData.err}`,
+          };
+        }
+
+        // 检查token错误
+        if (jsonData.message && typeof jsonData.message === 'string') {
+          const msg = jsonData.message.toLowerCase();
+          if (
+            msg.includes('token') &&
+            (msg.includes('error') ||
+              msg.includes('invalid') ||
+              msg.includes('expired') ||
+              msg.includes('错误') ||
+              msg.includes('无效') ||
+              msg.includes('过期'))
+          ) {
+            return { valid: false, reason: `Token错误: ${jsonData.message}` };
+          }
+        }
+      }
+
+      // 调用 AI 分析响应内容
+      const aiService = getAIService();
+      if (!aiService) {
+        // AI 未配置，回退到简单规则判断
+        logger.debug('AI 未配置，使用简单规则判断');
+        return this.simpleResponseAnalysis(responseData, statusCode);
+      }
+
+      const prompt = `分析以下订阅服务器的响应内容，判断订阅地址是否有效。
+
+HTTP状态码: ${statusCode}
+响应内容:
+\`\`\`
+${responseData.substring(0, 500)}
+\`\`\`
+
+判断标准：
+1. 如果响应包含"token is error"、"invalid token"、"expired"、"unauthorized"等错误信息，则无效
+2. 如果响应包含 status: "fail" 或 error 字段，则无效
+3. 如果响应是有效的订阅配置（YAML/Base64格式），则有效
+4. 如果响应包含节点配置信息（proxies、servers等），则有效
+
+请用JSON格式回答：{"valid": true/false, "reason": "判断理由"}`;
+
+      const result = await aiService.chat(prompt);
+      logger.debug(`AI 分析结果: ${result}`);
+
+      // 解析 AI 返回的 JSON
+      const jsonMatch = result.match(/\{[^{}]*"valid"[^{}]*\}/);
+      if (jsonMatch) {
+        const analysis = JSON.parse(jsonMatch[0]);
+        return {
+          valid: analysis.valid === true,
+          reason: analysis.reason || undefined,
+        };
+      }
+
+      // AI 返回格式不正确，使用简单规则
+      logger.warn('AI 返回格式不正确，使用简单规则判断');
+      return this.simpleResponseAnalysis(responseData, statusCode);
+    } catch (error) {
+      logger.debug('AI 分析失败，使用简单规则判断', error);
+      return this.simpleResponseAnalysis(responseData, statusCode);
+    }
+  }
+
+  /**
+   * 简单规则分析响应内容（AI 不可用时的回退方案）
+   */
+  private simpleResponseAnalysis(
+    responseData: string,
+    statusCode: number
+  ): { valid: boolean; reason?: string } {
+    const lowerData = responseData.toLowerCase();
+
+    // 检查明确的错误关键词
+    const errorKeywords = [
+      'token is error',
+      'token error',
+      'invalid token',
+      'token expired',
+      'unauthorized',
+      'access denied',
+      'forbidden',
+      '\'status\':\'fail\'',
+      '"status":"fail"',
+      '\'status\':\'error\'',
+      '"status":"error"',
+    ];
+
+    for (const keyword of errorKeywords) {
+      if (lowerData.includes(keyword)) {
+        return { valid: false, reason: `响应包含错误: ${keyword}` };
+      }
+    }
+
+    // HTTP 状态码非 2xx 认为无效
+    if (statusCode < 200 || statusCode >= 300) {
+      return { valid: false, reason: `HTTP状态码 ${statusCode}` };
+    }
+
+    // 检查是否包含订阅配置的特征
+    const validKeywords = ['proxies', 'servers', 'vmess://', 'trojan://', 'ss://'];
+    const hasValidContent = validKeywords.some((keyword) => lowerData.includes(keyword));
+
+    if (hasValidContent) {
+      return { valid: true };
+    }
+
+    // 默认认为有效（保守策略）
+    return { valid: true };
+  }
+
+  /**
+   * 快速验证（检查 HTTP 可达性并分析响应内容）
    */
   async quickValidate(subscriptionUrl: string): Promise<boolean> {
     try {
-      const response = await axios.head(subscriptionUrl, {
-        timeout: 10000,
-        validateStatus: (status) => status === 200,
+      // 创建 HTTPS Agent 忽略 SSL 证书验证
+      const httpsAgent = new https.Agent({
+        rejectUnauthorized: false,
       });
 
-      return response.status === 200;
+      const response = await axios.get(subscriptionUrl, {
+        timeout: 10000,
+        validateStatus: () => true, // 接受所有状态码
+        httpsAgent,
+        responseType: 'text',
+      });
+
+      const responseData = String(response.data || '');
+
+      // 使用 AI 分析响应内容
+      const analysis = await this.analyzeResponseWithAI(responseData, response.status);
+
+      return analysis.valid;
     } catch {
       return false;
     }

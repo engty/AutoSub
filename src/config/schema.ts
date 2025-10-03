@@ -50,6 +50,18 @@ export function validateSiteConfig(site: any): site is SiteConfig {
     }
   }
 
+  if ('credentialFile' in site && typeof site.credentialFile !== 'string') {
+    return false;
+  }
+
+  if ('credentialsUpdatedAt' in site && typeof site.credentialsUpdatedAt !== 'string') {
+    return false;
+  }
+
+  if ('cookieValid' in site && typeof site.cookieValid !== 'boolean') {
+    return false;
+  }
+
   return true;
 }
 
@@ -112,5 +124,8 @@ export function createEmptySiteConfig(
     subscriptionUrl: '',
     extractionMode: 'api',
     enabled: true,
+    credentialFile: '',
+    credentialsUpdatedAt: '',
+    cookieValid: false,
   };
 }

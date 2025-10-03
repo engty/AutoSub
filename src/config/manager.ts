@@ -1,6 +1,7 @@
 import yaml from 'js-yaml';
 import { ClashAutoSubConfig, SiteConfig, ErrorCode, AutoSubError, AIConfig } from '../types/index.js';
 import { FileUtil, CONFIG_FILE } from '../utils/file.js';
+import { ensureCredentialDir, writeCredentials, deleteCredentials } from '../credentials/index.js';
 import { logger } from '../utils/logger.js';
 import { DEFAULT_CONFIG, validateConfig } from './schema.js';
 import { AIConfigManager } from '../ai/ai-config.js';
@@ -23,6 +24,8 @@ export class ConfigManager {
    */
   load(): ClashAutoSubConfig {
     try {
+      ensureCredentialDir();
+
       if (!FileUtil.exists(this.configPath)) {
         logger.info('配置文件不存在，使用默认配置');
         return this.config;
@@ -39,6 +42,7 @@ export class ConfigManager {
       }
 
       this.config = parsed;
+      this.migrateSiteCredentials();
       logger.debug(`配置文件加载成功: ${this.configPath}`);
       return this.config;
     } catch (error) {
@@ -165,6 +169,7 @@ export class ConfigManager {
 
     const site = this.config.sites[index];
     this.config.sites.splice(index, 1);
+    deleteCredentials(site.id);
 
     logger.info(`删除站点配置: ${site.name}`);
   }
@@ -260,6 +265,93 @@ export class ConfigManager {
 
     manager.save();
     return manager;
+  }
+
+  private migrateSiteCredentials(): void {
+    let changed = false;
+
+    for (const site of this.config.sites) {
+      if (!site.credentials) {
+        // 初始化结构
+        site.credentials = {
+          cookies: '',
+          localStorage: '',
+          sessionStorage: '',
+          tokens: '',
+        };
+      }
+
+      if (!site.credentialFile && site.credentials.cookies) {
+        try {
+          const cookies = site.credentials.cookies;
+          const localStorage = site.credentials.localStorage || '{}';
+          const sessionStorage = site.credentials.sessionStorage || '{}';
+
+          const parsedCookies = (() => {
+            try {
+              return JSON.parse(cookies);
+            } catch {
+              return [];
+            }
+          })();
+
+          const parsedLocal = (() => {
+            try {
+              return JSON.parse(localStorage);
+            } catch {
+              return {};
+            }
+          })();
+
+          const parsedSession = (() => {
+            try {
+              return JSON.parse(sessionStorage);
+            } catch {
+              return {};
+            }
+          })();
+
+          const file = writeCredentials(site.id, {
+            cookies: Array.isArray(parsedCookies) ? parsedCookies : [],
+            localStorage: parsedLocal,
+            sessionStorage: parsedSession,
+            updatedAt: new Date().toISOString(),
+          });
+
+          site.credentialFile = file;
+          site.credentialsUpdatedAt = new Date().toISOString();
+          site.cookieValid = true;
+
+          // 清空旧字段中的 cookie 避免重复保存
+          site.credentials.cookies = '';
+          site.credentials.localStorage = '';
+          site.credentials.sessionStorage = '';
+          changed = true;
+        } catch (error) {
+          logger.warn(
+            `迁移站点凭证失败(${site.id}): ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+
+      // 初始化新增字段默认值
+      site.credentialFile ||= site.credentialFile || '';
+      site.credentialsUpdatedAt ||= site.credentialsUpdatedAt || '';
+      if (typeof site.cookieValid === 'undefined') {
+        site.cookieValid = Boolean(site.credentialFile);
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      try {
+        this.save();
+      } catch (error) {
+        logger.warn(
+          `保存迁移后配置失败: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    }
   }
 }
 
