@@ -26,7 +26,7 @@
 - ✅ 基础 PRD 文档 (`docs/basic_prd.md`)
 - ✅ Clash 配置示例 (`yaml/test_config.yaml`)
 - ✅ ZCF 项目技术栈分析（参考优秀开源项目）
-- ✅ Chrome DevTools MCP 技术评估
+- ✅ Puppeteer 浏览器自动化技术评估
 
 #### 当前项目状态
 
@@ -34,17 +34,18 @@
 
 **核心目标：**
 
-Clash AutoSub 是一个基于 **Node.js + Chrome DevTools MCP** 的命令行自动化工具，解决动态 VPN 订阅地址（5分钟更新）导致的手动维护负担。通过 Google 官方的 Chrome DevTools MCP Server，实现用户手动登录后自动捕获凭证（Cookie + Token + Storage），并更新 Clash 配置文件。
+Clash AutoSub 是一个基于 **Node.js + Puppeteer** 的命令行自动化工具，解决动态 VPN 订阅地址（5分钟更新）导致的手动维护负担。通过控制系统 Chrome 浏览器引导用户登录、捕获凭证（Cookie + Storage），并自动更新 Clash 配置文件。
 
 **关键特性：**
 
-- 🌐 **Chrome DevTools MCP 集成**：使用 Google 官方 MCP Server 控制浏览器
-- 🔐 **统一登录策略**：用户手动登录 + MCP 自动捕获所有凭证
+- 🌐 **Puppeteer 浏览器自动化**：直接驱动系统 Chrome 浏览器进行自动化操作
+- 🔐 **统一登录策略**：用户手动登录 + Puppeteer 自动捕获所有凭证
 - 🛡️ **智能部分更新**：成功的更新，失败的保留原配置
 - 📡 **订阅地址验证**：HTTP状态码 + YAML格式 + 节点数量检查
 - 🔧 **向导式配置**：交互式 CLI（借鉴 ZCF 设计），自动检测 Clash 路径
 - 🔄 **远程维护**：GitHub 托管选择器配置，快速适配网站变化
 - 🔒 **本地化安全**：凭证加密存储，零云端上传
+- 🤖 **AI 辅助验证**：使用 AI 分析订阅响应内容，智能判断有效性
 
 ### 1.2 技术栈
 
@@ -57,8 +58,7 @@ Clash AutoSub 是一个基于 **Node.js + Chrome DevTools MCP** 的命令行自�
 | **进度显示** | Ora | 8.0+ | 优雅加载动画（借鉴 ZCF） |
 | **颜色输出** | Chalk | 5.0+ | 终端颜色美化（借鉴 ZCF） |
 | **表格显示** | cli-table3 | 0.6+ | 状态信息表格 |
-| **浏览器控制** | **Chrome DevTools MCP** ⭐ | latest | **Google 官方 MCP Server** |
-| **MCP 客户端** | **@modelcontextprotocol/sdk** ⭐ | 1.0+ | **官方 MCP SDK** |
+| **浏览器控制** | Puppeteer-core | 24.x | 直接驱动系统 Chrome |
 | **HTTP 客户端** | Axios | 1.6+ | 订阅地址验证 |
 | **配置解析** | js-yaml | 4.1+ | Clash YAML 解析 |
 | **加密** | crypto-js | 4.2+ | 凭证加密存储 |
@@ -74,32 +74,32 @@ clash-autosub/
 ├── src/
 │   ├── cli/
 │   │   ├── index.ts            # CLI 主程序
-│   │   ├── commands/           # 命令处理器
-│   │   │   ├── setup.ts        # 配置向导
-│   │   │   ├── update.ts       # 更新订阅
-│   │   │   ├── cron.ts         # 定时任务
-│   │   │   └── status.ts       # 状态查看
-│   │   ├── menu.ts             # 交互式菜单（核心）
-│   │   └── prompts.ts          # Inquirer 提示配置
-│   ├── core/
-│   │   ├── mcp/                # MCP 客户端
-│   │   │   └── client.ts       # Chrome DevTools MCP 客户端
-│   │   ├── auth/               # 登录模块
-│   │   │   └── cookie-capture.ts # Cookie 和 Token 捕获
-│   │   ├── scraper/            # 订阅抓取
-│   │   │   ├── api-mode.ts     # API 模式提取
-│   │   │   └── dom-mode.ts     # DOM 元素提取
-│   │   ├── validator/          # 订阅验证
-│   │   │   └── subscription.ts
-│   │   └── updater/            # Clash 配置更新
-│   │       └── clash.ts
+│   │   └── prompts/            # Inquirer 提示配置
+│   ├── puppeteer/
+│   │   ├── browser.ts          # Puppeteer 浏览器管理
+│   │   └── login-detector.ts   # 登录状态检测
+│   ├── subscription/
+│   │   ├── puppeteer-api-extractor.ts  # Puppeteer 订阅提取
+│   │   └── validator.ts        # 订阅验证（含 AI）
+│   ├── service/
+│   │   ├── auto-update.ts      # 自动更新服务
+│   │   ├── cookie-refresh.ts   # Cookie 刷新服务
+│   │   └── cookie-status.ts    # Cookie 状态检查
+│   ├── credentials/
+│   │   ├── manager.ts          # 凭证管理（加密存储）
+│   │   └── cookie-expiry.ts    # Cookie 过期检测
+│   ├── ai/
+│   │   ├── index.ts            # AI 服务抽象
+│   │   └── deepseek-vision.ts  # DeepSeek 视觉分析
+│   ├── clash/
+│   │   ├── config-updater.ts   # Clash 配置更新
+│   │   └── url-replacer.ts     # URL 替换工具
 │   ├── config/
 │   │   ├── manager.ts          # 配置管理
 │   │   └── schema.ts           # 配置结构定义
 │   ├── utils/
 │   │   ├── logger.ts           # 日志系统
-│   │   ├── crypto.ts           # 加密工具
-│   │   └── file.ts             # 文件操作
+│   │   └── file.ts             # 文件操作工具
 │   └── types/
 │       └── index.ts            # TypeScript 类型定义
 ├── selectors/                  # 选择器配置（GitHub 远程）
@@ -118,16 +118,17 @@ clash-autosub/
 
 #### 增强类型
 - ☑️ **新功能添加**（全新 CLI 工具）
-- ☑️ **集成新系统**（Chrome DevTools MCP + Clash 配置）
+- ☑️ **集成新系统**（Puppeteer 浏览器自动化 + Clash 配置）
 
 #### 增强描述
 
-创建一个 **Node.js/TypeScript CLI 自动化工具**，通过 **Google 官方的 Chrome DevTools MCP** 控制浏览器，实现：
-1. 用户在可视化浏览器中手动登录 VPN 网站
-2. MCP 自动监听网络请求，捕获 API 响应中的 Token
-3. 自动提取 Cookie、LocalStorage、SessionStorage
-4. 验证订阅地址有效性
-5. 更新 Clash 配置文件
+创建一个 **Node.js/TypeScript CLI 自动化工具**，通过 **Puppeteer 驱动系统 Chrome** 控制浏览器，实现：
+1. 用户在可视化浏览器中手动或自动（凭证注入）登录 VPN 网站
+2. 自动监听网络请求和剪贴板，提取订阅地址
+3. 捕获 Cookie、LocalStorage、SessionStorage 并落盘到 `~/.autosub/credentials`
+4. 启动时校验凭证有效性并在菜单中展示
+5. 验证订阅地址有效性
+6. 更新 Clash 配置文件
 
 采用 **ZCF 风格的交互式菜单**，支持多站点智能管理。
 
@@ -149,7 +150,7 @@ clash-autosub/
 
 部分 VPN 代理服务商（糖果云、红杏云等）采用动态订阅地址机制（5分钟失效），导致用户需频繁手动登录、复制订阅地址并更新配置文件，严重干扰工作流程。
 
-Clash AutoSub 通过 **Google 官方的 Chrome DevTools MCP** 自动化引擎解决此痛点，并采用 **ZCF 风格的交互式 CLI**，提供优雅的用户体验。
+Clash AutoSub 通过 **Puppeteer 自动化引擎 + 凭证持久化机制** 解决此痛点，并采用 **ZCF 风格的交互式 CLI**，提供优雅的用户体验。
 
 ---
 
@@ -163,19 +164,26 @@ Clash AutoSub 通过 **Google 官方的 Chrome DevTools MCP** 自动化引擎解
 - 系统应提供交互式配置向导（`autosub` 或 `autosub setup`）
 - 引导用户完成订阅站点配置，包括：
   - 站点 URL 输入（支持预定义站点和自定义站点）
-  - 通过 Chrome DevTools MCP 打开浏览器
-  - 用户手动登录（处理验证码/2FA）
-  - 自动捕获登录凭证（Cookie + Token + LocalStorage + SessionStorage）
-- 配置保存到 `~/.autosub/config.yaml`
+  - 通过 Puppeteer 启动系统 Chrome 浏览器
+  - 在无有效 Cookie 时提示用户手动登录（处理验证码/2FA）
+  - 自动捕获登录凭证（Cookie + LocalStorage + SessionStorage）并落盘
+- 配置保存到 `~/.autosub/config.yaml`，凭证保存到 `~/.autosub/credentials/{siteId}.json`
 
-**FR2: Chrome DevTools MCP 集成（核心）**
-- 系统应通过 `@modelcontextprotocol/sdk` 连接 Chrome DevTools MCP Server
-- 使用 `navigate_page` 打开登录页面
-- 使用 `list_network_requests` 监听网络请求，捕获包含 Token 的 API 响应
-- 使用 `evaluate_script` 提取 Cookie、LocalStorage、SessionStorage
-- 使用 `wait_for` 检测登录成功（URL 变化或特定文本出现）
-- 使用 `handle_dialog` 处理登录后的广告弹窗
-- 支持 `--isolated=true` 创建独立浏览器实例
+**FR2: Puppeteer 浏览器自动化流程（核心）**
+- 系统通过 Puppeteer 控制系统 Chrome，实现：
+  1. 启动系统 Chrome 浏览器（非 headless 模式）
+  2. 打开站点登录页面
+  3. 自动检测登录状态（使用 AI 视觉分析或 DOM 检测）
+  4. 等待用户手动登录完成
+  5. 捕获所有凭证（Cookie + localStorage + sessionStorage）
+  6. 加密保存凭证到本地文件
+  7. 自动导航到订阅页面并提取订阅地址
+  8. 关闭浏览器
+  - 注入历史凭证自动登录；若无凭证或失效则引导手动登录
+  - 登录完成后再次询问用户确认，防止误判
+  - 捕获网络请求（订阅 API）、剪贴板和 DOM，以提取订阅地址
+  - 捕获最新 Cookie/Storage 并写回凭证文件
+  - 监听浏览器关闭行为，将其视为用户主动取消
 
 **FR3: 订阅地址获取策略（多重策略）**
 - **策略 A：API 模式提取（优先）**
@@ -199,24 +207,29 @@ Clash AutoSub 通过 **Google 官方的 Chrome DevTools MCP** 自动化引擎解
   - 节点数量 > 0
 - **验证失败不允许强制更新**（避免配置损坏）
 
-**FR5: 智能部分更新机制**
+**FR5: 凭证持久化与启动校验**
+- 系统应将每个站点的 Cookie、localStorage、sessionStorage 写入 `~/.autosub/credentials/{siteId}.json`
+- 启动 CLI 时批量校验各站点 Cookie 是否有效，将结果写回配置（`cookieValid`）并在菜单展示
+- 凭证失效时提示用户重新登录，并在删除站点时清理对应凭证文件
+
+**FR6: 智能部分更新机制**
 - 系统应实现智能部分更新机制：
   - 成功获取的订阅地址更新到 Clash 配置文件
   - 失败的账户保留原配置不变
   - 更新前自动备份原文件（`config.yaml.backup.{timestamp}`）
 
-**FR6: 快捷手动更新命令**
+**FR7: 快捷手动更新命令**
 - 系统应支持快捷手动更新命令（`autosub update`）
 - 一键执行所有配置账户的订阅地址更新
 - 显示实时进度和结果摘要（使用 Ora + cli-table3）
 
-**FR7: 定时更新功能**
+**FR8: 定时更新功能**
 - 系统应支持在交互式配置向导中设置定时更新功能
 - 自动配置系统 Cron 任务
 - 支持自定义更新频率（默认每天 1 次，早 8:00）
 - 提供日志查看和任务移除功能
 
-**FR8: Clash 配置文件路径设置**
+**FR9: Clash 配置文件路径设置**
 - 系统应支持在交互式配置向导中设置 Clash 配置文件路径
 - 自动检测常见路径（macOS/Linux/Windows+WSL）
 - 支持手动指定路径
@@ -270,7 +283,7 @@ Clash AutoSub 通过 **Google 官方的 Chrome DevTools MCP** 自动化引擎解
 
 **NFR1: 性能要求**
 - 单个账户订阅地址更新操作应在 30 秒内完成（正常网络条件下）
-- Chrome DevTools MCP 启动时间 < 3 秒
+- Puppeteer 浏览器启动时间 < 3 秒
 
 **NFR2: 平台支持**
 - 系统应支持 macOS 10.15+、Linux（Ubuntu 20.04+）、Windows 10/11（通过 WSL 2）
@@ -297,7 +310,7 @@ Clash AutoSub 通过 **Google 官方的 Chrome DevTools MCP** 自动化引擎解
 
 **NFR7: Headless 模式支持**
 - 系统应支持 Headless 模式运行（服务器环境）
-- 使用 `--headless=true` 参数启动 Chrome DevTools MCP
+- 使用 Puppeteer 的 headless 模式启动浏览器
 
 **NFR8: 代码质量**
 - 代码应遵循 TypeScript 最佳实践
@@ -880,5 +893,25 @@ autosub update --config /path/to/config.yaml
 
 ---
 
+## 技术架构更新说明
+
+**重要变更（2025-10-03）：** 项目已从 Chrome DevTools MCP 方案迁移到 Puppeteer 方案，实现完全自动化。
+
+### 迁移原因
+1. **更好的控制力**：Puppeteer 提供更直接的浏览器控制能力
+2. **简化部署**：无需额外的 MCP Server 进程
+3. **更好的稳定性**：减少中间层，降低故障点
+4. **AI 增强**：集成 AI 视觉分析和响应验证
+
+### 主要变更
+- **浏览器控制**：从 MCP Client → Puppeteer-core
+- **登录检测**：增加 AI 视觉分析能力（DeepSeek Vision）
+- **订阅验证**：增加 AI 响应内容分析
+- **凭证管理**：增强 Cookie 过期检测和自动刷新
+- **状态检测**：支持 localStorage/sessionStorage 作为有效登录凭证
+
+---
+
 **文档版本历史：**
+- v1.1 (2025-10-03): 更新架构说明，反映 Puppeteer 迁移
 - v1.0 (2025-10-02): 初始版本，采用 Chrome DevTools MCP 方案

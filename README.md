@@ -15,10 +15,12 @@ Clash AutoSub 是一个命令行全自动化工具，解决动态 VPN 订阅地�
 
 - 🎯 **完全自动化** - 用户只需登录一次，后续自动完成所有操作
 - 🧠 **智能登录检测** - 5+ 检测策略（URL/元素/网络/Cookie/通用模式）
-- 🍪 **Cookie 持久化** - 登录状态保存，下次可能无需重新登录
+- 🤖 **AI 辅助验证** - 使用 AI 分析订阅响应内容，智能判断有效性
+- 🍪 **Cookie 持久化** - 登录状态落盘 `~/.autosub/credentials/`，后续自动复用
+- 🔄 **自动校验会话** - 启动时刷新各站点 Cookie 有效性，菜单实时标注
 - 🌐 **系统 Chrome** - 使用本地已安装的 Chrome，无需下载 Chromium
 - 🛡️ **智能部分更新** - 成功的更新，失败的保留原配置
-- 📡 **订阅地址验证** - HTTP状态码 + YAML格式 + 节点数量检查
+- 📡 **订阅地址验证** - HTTP状态码 + AI内容分析 + YAML格式 + 节点数量检查
 - 🔧 **向导式配置** - 交互式 CLI，自动检测 Clash 路径
 - 🔄 **远程维护** - GitHub 托管选择器配置，快速适配网站变化
 - 🔒 **本地化安全** - 凭证加密存储，零云端上传
@@ -75,11 +77,10 @@ autosub status
 
 ### 架构优势
 
-- **完全自动化**: 智能登录检测（5+ 策略，120秒超时）
-- **Cookie 持久化**: 保存到 `~/.autosub/chrome-profile`，下次可能无需登录
-- **系统集成**: 使用本地 Chrome（macOS/Windows/Linux 自动检测）
-- **可靠性提升**: Puppeteer 网络监听 99% 成功率（vs MCP 60-70%）
-- **代码简化**: 相比 MCP 方案减少 20% 代码量
+- **自动登录链路**：凭证注入 + 登录检测 + 用户可选确认，避免误判
+- **凭证外置存储**：每个站点独立凭证文件，失效即提示重新登录
+- **系统集成**：使用本地 Chrome（macOS/Windows/Linux 自动检测）
+- **可靠性提升**：Puppeteer 网络监听与剪贴板读取多策略兜底
 
 ## 🏗️ 项目结构
 
@@ -177,7 +178,8 @@ npx clash-autosub uninstall --keep-config
 
 - **配置目录**: `~/.autosub/`
 - **配置文件**: `~/.autosub/config.yaml`
-- **Chrome 配置**: `~/.autosub/chrome-profile/`（Cookie 持久化）
+- **凭证目录**: `~/.autosub/credentials/`（每站点一份 Cookie/Storage）
+- **Chrome 配置**: `~/.autosub/chrome-profile/`
 - **日志文件**: `~/.autosub/logs/`
 - **备份文件**: `~/.autosub/backups/`
 - **加密密钥**: `~/.autosub/.key`

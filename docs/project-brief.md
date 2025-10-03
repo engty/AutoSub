@@ -666,8 +666,6 @@ clash_config:
 4. Cookie 管理和过期提醒的用户体验
 5. 错误处理和回滚机制的完整流程
 
-**参考配置文件：** `/Users/engtyleong/Projects/Clash AutoSub/yaml/clash_config_default.yaml`
-
 ---
 
 **文档版本历史：**
