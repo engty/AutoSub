@@ -1,8 +1,7 @@
-# BMad-Method 框架文件（可选）
-# 如果不希望提交 BMad 工作流文件，请取消注释以下行：
-# .bmad-core/
-# .claude/commands/BMad/
-# docs/
+# BMad-Method 框架文件（开发工具，不提交）
+.bmad-core/
+.claude/
+docs/project-brief.md
 
 # 操作系统文件
 .DS_Store
