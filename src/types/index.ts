@@ -21,6 +21,29 @@ export interface SiteSelectors {
 /**
  * 订阅站点配置
  */
+/**
+ * HTTP API 配置
+ * 用于静默后台提取订阅地址
+ */
+export interface HttpApiConfig {
+  url: string;           // API 端点 URL
+  method: 'GET' | 'POST'; // HTTP 方法
+  
+  // 认证配置
+  authSource: 'cookie' | 'localStorage' | 'both'; // 认证来源
+  authField?: string;   // localStorage 中的认证字段路径，如 "app-user.token"
+  
+  // 订阅地址提取方式（二选一）
+  subscribeUrlField?: string; // 直接提取订阅地址字段，如 "data.subscribe_url"
+  tokenField?: string;        // 提取token字段，如 "data.token"
+  subscribeUrlPattern?: string; // token拼接模式，如 "https://example.com/sub?token={token}"
+  
+  // 可选配置
+  headers?: Record<string, string>; // 额外的请求头
+  params?: Record<string, any>;     // URL 参数
+  body?: Record<string, any>;       // POST 请求体
+}
+
 export interface SiteConfig {
   id: string; // 唯一标识符
   name: string;
@@ -40,6 +63,7 @@ export interface SiteConfig {
   credentialFile?: string; // 凭证文件路径
   credentialsUpdatedAt?: string; // 凭证更新时间
   cookieValid?: boolean; // Cookie 状态
+  api?: HttpApiConfig; // HTTP API 配置（自动检测并保存）
 }
 
 /**

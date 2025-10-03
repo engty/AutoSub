@@ -11,6 +11,7 @@ import {
   readCredentials as readStoredCredentials,
   writeCredentials as writeStoredCredentials,
 } from '../credentials/index.js';
+import { ApiDetector } from './api-detector.js';
 
 /**
  * Puppeteer 版本的 API 模式订阅抓取器
@@ -18,12 +19,14 @@ import {
 export class PuppeteerApiExtractor {
   private browser: PuppeteerBrowser;
   private networkListener: PuppeteerNetworkListener;
+  private apiDetector: ApiDetector;
   private configManager: ConfigManager;
   private aiClient?: DeepSeekVisionClient;
 
   constructor(browser: PuppeteerBrowser, configManager: ConfigManager, aiConfig?: AIConfig) {
     this.browser = browser;
     this.networkListener = new PuppeteerNetworkListener();
+    this.apiDetector = new ApiDetector();
     this.configManager = configManager;
 
     // 如果提供了 AI 配置,初始化 AI 客户端
@@ -86,6 +89,9 @@ export class PuppeteerApiExtractor {
         // 成功获取订阅地址，说明用户已登录，保存最新凭证
         await this.captureAndPersistCredentials(page, siteConfig);
 
+        // 检测并保存API配置（后台静默执行）
+        await this.detectAndSaveApiConfig(page, siteConfig);
+
         this.networkListener.stopListening(page);
         return clipboardUrl;
       }
@@ -121,6 +127,9 @@ export class PuppeteerApiExtractor {
 
       // 成功获取订阅地址，保存最新凭证
       await this.captureAndPersistCredentials(page, siteConfig);
+
+      // 检测并保存API配置（后台静默执行）
+      await this.detectAndSaveApiConfig(page, siteConfig);
 
       return subscriptionUrl;
     } catch (error) {
@@ -188,6 +197,73 @@ export class PuppeteerApiExtractor {
     }
 
     return null;
+  }
+
+  /**
+   * 检测并保存API配置
+   */
+  private async detectAndSaveApiConfig(page: any, siteConfig: SiteConfig): Promise<void> {
+    try {
+      logger.info('正在检测订阅API配置...');
+
+      // 1. 获取网络请求
+      const requests = this.networkListener.getRequests().map(req => ({
+        url: req.url,
+        method: req.method,
+        status: req.status,
+        resourceType: req.resourceType,
+        responseBody: req.responseBody,
+        requestHeaders: req.headers,
+      }));
+
+      if (requests.length === 0) {
+        logger.warn('未捕获到网络请求，跳过API检测');
+        return;
+      }
+
+      // 2. 获取localStorage数据
+      let localStorage: Record<string, string> | undefined;
+      try {
+        localStorage = await page.evaluate(() => {
+          const data: Record<string, string> = {};
+          for (let i = 0; i < window.localStorage.length; i++) {
+            const key = window.localStorage.key(i);
+            if (key) {
+              data[key] = window.localStorage.getItem(key) || '';
+            }
+          }
+          return data;
+        });
+      } catch (error) {
+        logger.warn('获取localStorage失败', error);
+      }
+
+      // 3. 执行API检测
+      const result = this.apiDetector.detect(requests, localStorage);
+
+      if (!result.detected || !result.config) {
+        logger.info(`未检测到API配置 (置信度: ${result.confidence.toFixed(2)})`);
+        if (result.reason) {
+          logger.info(`原因: ${result.reason}`);
+        }
+        return;
+      }
+
+      logger.info(`✓ 成功检测到API配置 (置信度: ${result.confidence.toFixed(2)})`);
+      logger.info(`  端点: ${result.config.url}`);
+      logger.info(`  认证: ${result.config.authSource}`);
+
+      // 4. 保存API配置到站点配置
+      this.configManager.updateSite(siteConfig.id, {
+        api: result.config,
+      });
+      this.configManager.save();
+
+      logger.info('✓ API配置已保存，下次更新将优先使用静默HTTP提取');
+
+    } catch (error) {
+      logger.warn('API检测过程出错，已跳过', error);
+    }
   }
 
   /**

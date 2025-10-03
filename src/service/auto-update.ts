@@ -1,5 +1,6 @@
 import { PuppeteerBrowser } from '../puppeteer/index.js';
 import { PuppeteerApiExtractor } from '../subscription/puppeteer-api-extractor.js';
+import { HttpApiExtractor } from '../subscription/http-api-extractor.js';
 import { SubscriptionValidator } from '../subscription/validator.js';
 import { ClashConfigUpdater, ClashUrlReplacer } from '../clash/index.js';
 import { getConfigManager, ConfigManager } from '../config/manager.js';
@@ -26,6 +27,7 @@ export interface UpdateResult {
 export class AutoUpdateService {
   private browser!: PuppeteerBrowser;
   private apiExtractor!: PuppeteerApiExtractor;
+  private httpApiExtractor!: HttpApiExtractor;
   private validator!: SubscriptionValidator;
   private configManager: ConfigManager;
   private clashUpdater!: ClashConfigUpdater;
@@ -50,6 +52,7 @@ export class AutoUpdateService {
 
       // 3. 初始化各模块(传递 AI 配置)
       this.apiExtractor = new PuppeteerApiExtractor(this.browser, this.configManager, aiConfig);
+      this.httpApiExtractor = new HttpApiExtractor();
       this.validator = new SubscriptionValidator();
 
       // 4. 初始化 Clash 更新器
@@ -216,7 +219,21 @@ export class AutoUpdateService {
    */
   private async extractSubscription(site: SiteConfig): Promise<string | null> {
     try {
-      // 优先使用已保存的订阅地址
+      // 优先级1: 尝试使用HTTP API静默提取（如果已配置）
+      if (site.api) {
+        logger.info('检测到API配置，尝试静默HTTP提取...');
+        try {
+          const httpUrl = await this.httpApiExtractor.extractFromSite(site);
+          if (httpUrl) {
+            logger.info('✓ HTTP API静默提取成功');
+            return httpUrl;
+          }
+        } catch (error) {
+          logger.warn('HTTP API提取失败，将使用浏览器方式', error);
+        }
+      }
+
+      // 优先级2: 检查已保存的订阅地址
       if (site.subscriptionUrl) {
         const isValid = await this.validator.quickValidate(site.subscriptionUrl);
         if (isValid) {
@@ -232,7 +249,8 @@ export class AutoUpdateService {
         }
       }
 
-      // 使用 Puppeteer API 提取器
+      // 优先级3: 使用 Puppeteer 浏览器提取
+      logger.info('使用浏览器方式提取订阅地址...');
       return await this.apiExtractor.extract(site);
     } catch (error) {
       logger.error('提取订阅地址失败', error);
