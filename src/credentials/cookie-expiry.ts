@@ -28,12 +28,10 @@ export async function getCookieExpiryInfo(siteId: string): Promise<CookieExpiryI
     }
 
     let nearestExpiry = Infinity;
-    let hasSessionCookie = false;
 
     for (const cookie of stored.cookies) {
       if (!cookie.expires) {
         // Session Cookie（浏览器关闭即失效）
-        hasSessionCookie = true;
         continue;
       }
 

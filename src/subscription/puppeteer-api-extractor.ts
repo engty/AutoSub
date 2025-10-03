@@ -68,6 +68,9 @@ export class PuppeteerApiExtractor {
       // 等待用户完成登录操作（新的交互机制）
       await this.waitForUserToComplete(credentialsInjected || storageInjected);
 
+      // 提前按 ESC 键清理页面遮挡层（预防性措施）
+      await this.closeOverlaysWithEsc(page);
+
       // 清空剪贴板，避免读取到旧数据
       await this.clearClipboard(page);
       logger.info('✓ 已清空剪贴板');
@@ -507,13 +510,45 @@ export class PuppeteerApiExtractor {
       logger.info(`  选择器: ${result.selector}`);
       logger.info(`  置信度: ${result.confidence}`);
 
-      // 4. 点击 AI 识别出的按钮
-      await page.click(result.selector);
-      logger.info('✓ 已点击 AI 识别的按钮');
+      // 4. 按 ESC 关闭可能的遮挡层
+      await this.closeOverlaysWithEsc(page);
 
-      // 等待更长时间确保复制操作完成
-      logger.debug('等待复制操作完成...');
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // 5. 检测按钮是否被遮挡
+      const isBlocked = await this.detectElementOverlay(page, result.selector);
+      if (isBlocked) {
+        logger.warn('检测到按钮被遮挡，再次按 ESC 关闭遮挡层');
+        await this.closeOverlaysWithEsc(page);
+      }
+
+      // 6. 获取当前剪贴板内容（用于后续检测变化）
+      const initialClipboard = await page.evaluate(async () => {
+        try {
+          return await navigator.clipboard.readText();
+        } catch {
+          return '';
+        }
+      });
+      logger.debug(`当前剪贴板内容: "${initialClipboard.substring(0, 50)}"`);
+
+      // 7. 使用多种方式尝试点击按钮
+      const clickSuccess = await this.clickElementMultiWay(page, result.selector);
+      if (!clickSuccess) {
+        logger.error('所有点击策略均失败');
+        return false;
+      }
+
+      // 8. 等待剪贴板内容变化（智能等待，最多 10 秒）
+      logger.info('⏳ 等待剪贴板内容更新...');
+      const newContent = await this.waitForClipboardChange(page, initialClipboard, 10000);
+
+      if (newContent) {
+        logger.info('✓ 剪贴板内容已成功更新');
+        return true;
+      }
+
+      // 如果剪贴板内容未变化，可能是复制失败，但不返回 false
+      // 让后续的 readClipboard() 再次尝试读取
+      logger.warn('⚠ 剪贴板内容未变化，可能复制失败或需要更多时间');
       return true;
     } catch (error) {
       logger.error('AI 识别点击失败:', error);
@@ -556,13 +591,46 @@ export class PuppeteerApiExtractor {
         ) {
           logger.info(`✓ 找到"复制链接"按钮: "${text}" (title: "${title}")`);
 
-          // 点击按钮
-          await button.click();
-          logger.info('✓ 已点击"复制链接"按钮');
+          // 按 ESC 关闭可能的遮挡层
+          await this.closeOverlaysWithEsc(page);
 
-          // 等待更长时间让复制操作完成
-          logger.debug('等待复制操作完成...');
-          await new Promise((resolve) => setTimeout(resolve, 2000));
+          // 获取当前剪贴板内容
+          const initialClipboard = await page.evaluate(async () => {
+            try {
+              return await navigator.clipboard.readText();
+            } catch {
+              return '';
+            }
+          });
+
+          // 尝试点击按钮（多策略）
+          let clickSuccess = false;
+          try {
+            await button.click({ delay: 100 });
+            logger.info('✓ 已点击"复制链接"按钮（ElementHandle.click）');
+            clickSuccess = true;
+          } catch (clickError) {
+            logger.debug(`ElementHandle.click 失败，尝试 evaluate 方式: ${clickError}`);
+            try {
+              await button.evaluate((el: HTMLElement) => el.click());
+              logger.info('✓ 已点击"复制链接"按钮（evaluate.click）');
+              clickSuccess = true;
+            } catch (evalError) {
+              logger.error('所有点击方式均失败');
+            }
+          }
+
+          if (clickSuccess) {
+            // 等待剪贴板内容变化
+            logger.info('⏳ 等待剪贴板内容更新...');
+            const newContent = await this.waitForClipboardChange(page, initialClipboard, 10000);
+            if (newContent) {
+              logger.info('✓ 剪贴板内容已成功更新');
+            } else {
+              logger.warn('⚠ 剪贴板内容未变化，可能复制失败');
+            }
+          }
+
           return;
         }
       } catch (error) {
@@ -594,6 +662,184 @@ export class PuppeteerApiExtractor {
     } catch (error) {
       logger.debug('清空剪贴板失败（忽略）:', error);
     }
+  }
+
+  /**
+   * 按 ESC 键关闭可能的广告/弹窗遮挡
+   * 某些站点会弹出广告、提示框等遮挡层，按 ESC 可以关闭
+   */
+  private async closeOverlaysWithEsc(page: any): Promise<void> {
+    try {
+      logger.info('🔨 尝试按 ESC 关闭可能的遮挡层...');
+
+      // 按两次 ESC，有些弹窗需要多次按键才能关闭
+      for (let i = 0; i < 2; i++) {
+        await page.keyboard.press('Escape');
+        logger.debug(`  第 ${i + 1} 次按下 ESC 键`);
+        // 每次按键后短暂等待，让页面响应
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      }
+
+      logger.info('✓ 已尝试关闭遮挡层');
+    } catch (error) {
+      // ESC 关闭失败不是致命错误，继续执行
+      logger.debug('按 ESC 关闭遮挡层失败（非致命错误）:', error);
+    }
+  }
+
+  /**
+   * 等待剪贴板内容发生变化
+   * 使用智能等待机制代替固定延迟，提高成功率
+   * @param page Puppeteer 页面对象
+   * @param initialContent 初始剪贴板内容（用于检测变化）
+   * @param timeout 超时时间（毫秒）
+   * @returns 新的剪贴板内容，如果超时则返回 null
+   */
+  private async waitForClipboardChange(
+    page: any,
+    initialContent: string,
+    timeout: number = 10000
+  ): Promise<string | null> {
+    try {
+      logger.debug(`⏳ 等待剪贴板内容变化（初始内容: "${initialContent.substring(0, 50)}"）`);
+
+      // 使用 waitForFunction 等待剪贴板内容变化
+      await page.waitForFunction(
+        async (initial: string) => {
+          try {
+            const current = await navigator.clipboard.readText();
+            // 检查内容是否变化，且新内容不为空
+            return current !== initial && current.trim().length > 0;
+          } catch {
+            return false;
+          }
+        },
+        { timeout, polling: 200 }, // 每 200ms 检查一次
+        initialContent
+      );
+
+      // 读取新的剪贴板内容
+      const newContent = await page.evaluate(async () => {
+        try {
+          return await navigator.clipboard.readText();
+        } catch {
+          return null;
+        }
+      });
+
+      if (newContent && newContent !== initialContent) {
+        logger.info(`✓ 剪贴板内容已变化: "${newContent.substring(0, 100)}"`);
+        return newContent;
+      }
+
+      return null;
+    } catch (error) {
+      // 超时或其他错误
+      logger.debug(`等待剪贴板变化超时或失败: ${error instanceof Error ? error.message : String(error)}`);
+      return null;
+    }
+  }
+
+  /**
+   * 检测元素是否被其他元素遮挡
+   * 通过 document.elementFromPoint() 判断点击位置是否是目标元素
+   * @param page Puppeteer 页面对象
+   * @param selector CSS 选择器
+   * @returns 是否被遮挡（true 表示被遮挡）
+   */
+  private async detectElementOverlay(page: any, selector: string): Promise<boolean> {
+    try {
+      const isBlocked = await page.evaluate((sel: string) => {
+        const element = document.querySelector(sel);
+        if (!element) return true; // 元素不存在，视为被遮挡
+
+        const rect = element.getBoundingClientRect();
+        // 检查元素中心点
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+
+        // 获取该位置的最顶层元素
+        const topElement = document.elementFromPoint(centerX, centerY);
+
+        // 如果最顶层元素是目标元素或其子元素，则未被遮挡
+        if (topElement && (topElement === element || element.contains(topElement))) {
+          return false;
+        }
+
+        // 被其他元素遮挡
+        return true;
+      }, selector);
+
+      if (isBlocked) {
+        logger.warn(`⚠ 按钮被遮挡: ${selector}`);
+      } else {
+        logger.debug(`✓ 按钮未被遮挡: ${selector}`);
+      }
+
+      return isBlocked;
+    } catch (error) {
+      logger.debug(`检测元素遮挡状态失败: ${error instanceof Error ? error.message : String(error)}`);
+      return false; // 检测失败时假设未被遮挡，继续尝试点击
+    }
+  }
+
+  /**
+   * 使用多种方式尝试点击元素
+   * 按照优先级尝试不同的点击策略，提高成功率
+   * @param page Puppeteer 页面对象
+   * @param selector CSS 选择器
+   * @returns 是否成功点击
+   */
+  private async clickElementMultiWay(page: any, selector: string): Promise<boolean> {
+    logger.info(`🔨 尝试多种方式点击: ${selector}`);
+
+    // 策略 1: 标准 Puppeteer 点击（模拟真实鼠标移动）
+    try {
+      logger.debug('  策略 1: page.click() - 标准点击');
+      await page.click(selector, { delay: 100 }); // 添加 100ms 延迟模拟真实点击
+      logger.info('✓ page.click() 成功');
+      return true;
+    } catch (error) {
+      logger.debug(`  策略 1 失败: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    // 策略 2: 直接调用 DOM 元素的 click() 方法（绕过遮挡层）
+    try {
+      logger.debug('  策略 2: element.click() - DOM 直接点击');
+      await page.evaluate((sel: string) => {
+        const element = document.querySelector(sel) as HTMLElement;
+        if (element) {
+          element.click();
+        }
+      }, selector);
+      logger.info('✓ element.click() 成功');
+      // 等待点击事件处理
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      return true;
+    } catch (error) {
+      logger.debug(`  策略 2 失败: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    // 策略 3: 聚焦 + Enter 键（模拟键盘操作）
+    try {
+      logger.debug('  策略 3: focus + Enter - 键盘模拟');
+      await page.evaluate((sel: string) => {
+        const element = document.querySelector(sel) as HTMLElement;
+        if (element) {
+          element.focus();
+        }
+      }, selector);
+      await page.keyboard.press('Enter');
+      logger.info('✓ focus + Enter 成功');
+      // 等待按键事件处理
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      return true;
+    } catch (error) {
+      logger.debug(`  策略 3 失败: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    logger.error('❌ 所有点击策略均失败');
+    return false;
   }
 
   /**
@@ -855,7 +1101,7 @@ export class PuppeteerApiExtractor {
       logger.info('━━━━ 凭证提取详情 ━━━━');
       logger.info(`📋 Cookie数量: ${cookies.length}`);
       if (cookies.length > 0) {
-        logger.info(`   Cookie列表: ${cookies.map(c => c.name).join(', ')}`);
+        logger.info(`   Cookie列表: ${cookies.map((c: any) => c.name).join(', ')}`);
       }
 
       const localStorageCount = Object.keys(localStorageData).length;

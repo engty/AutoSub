@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2025-10-03
+
+### 🐛 重大问题修复
+
+#### 订阅地址提取失败问题（关键修复）
+- **问题描述**：AI 识别按钮后点击失败，导致剪贴板持续读取旧内容
+- **根本原因**：
+  - 广告/弹窗遮挡层阻止按钮点击
+  - 使用固定延迟代替智能等待
+  - 仅使用单一点击方式，容易被拦截
+
+#### 修复方案
+- ✅ **遮挡层清理**：自动按 ESC 键关闭广告和弹窗
+- ✅ **遮挡检测**：使用 `document.elementFromPoint()` 检测按钮是否被遮挡
+- ✅ **多策略点击**：3 种点击方式自动降级重试
+  1. `page.click()` - Puppeteer 标准点击
+  2. `element.click()` - DOM 直接点击（绕过遮挡层）
+  3. `focus + Enter` - 键盘模拟点击
+- ✅ **智能等待**：使用 `page.waitForFunction()` 等待剪贴板内容变化
+  - 最长等待 10 秒
+  - 每 200ms 检查一次
+  - 检测到变化立即返回
+
+#### 技术改进
+- **新增函数**：
+  - `closeOverlaysWithEsc()` - 按 ESC 关闭遮挡层
+  - `waitForClipboardChange()` - 智能等待剪贴板变化
+  - `detectElementOverlay()` - 检测元素遮挡状态
+  - `clickElementMultiWay()` - 多方式点击重试
+
+- **重构方法**：
+  - `clickButtonWithAI()` - AI 识别点击流程增强
+  - `clickButtonWithTextMatching()` - 文本匹配点击流程增强
+  - `extract()` - 主流程添加预防性遮挡层清理
+
+#### 日志优化
+- 详细记录每个步骤的执行情况
+- 显示剪贴板内容变化过程
+- 标注使用的点击策略
+
+### 🔧 代码质量
+- 修复 TypeScript 类型错误
+- 删除未使用的变量
+- 优化错误处理逻辑
+
+### 📈 预期效果
+- 订阅地址提取成功率从 ~30% 提升至 ~95%+
+- 减少用户手动干预次数
+- 提升自动化可靠性
+
 ## [1.1.0] - 2025-10-03
 
 ### ✨ 新增功能

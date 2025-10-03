@@ -1,6 +1,6 @@
 {
   "name": "clash-autosub",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Clash AutoSub 是一个基于 Node.js + Chrome DevTools MCP 的命令行自动化工具，解决动态 VPN 订阅地址（5分钟更新）导致的手动维护负担。通过 Google 官方的 Chrome DevTools MCP Server，实现用户手动登录后自动捕获凭证（Cookie + Token + Storage），并更新 Clash 配置文件。",
   "type": "module",
   "main": "dist/index.js",

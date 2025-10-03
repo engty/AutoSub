@@ -162,7 +162,7 @@ export class ClashUrlReplacer {
    */
   private replaceInTopLevel(
     config: any,
-    siteName: string,
+    _siteName: string,
     oldUrl: string | null,
     newUrl: string
   ): boolean {
