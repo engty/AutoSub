@@ -31,6 +31,7 @@ export class AutoUpdateService {
   private validator!: SubscriptionValidator;
   private configManager: ConfigManager;
   private clashUpdater!: ClashConfigUpdater;
+  private silentMode: boolean = false;
 
   constructor() {
     this.configManager = getConfigManager();
@@ -38,20 +39,27 @@ export class AutoUpdateService {
 
   /**
    * 初始化服务
+   * @param silent 静默模式：仅使用HTTP API，不打开浏览器
    */
-  async initialize(): Promise<void> {
+  async initialize(silent: boolean = false): Promise<void> {
+    this.silentMode = silent;
     try {
-      logger.info('初始化自动更新服务...');
+      logger.info(`初始化自动更新服务（${silent ? '静默' : '标准'}模式）...`);
 
-      // 1. 启动 Puppeteer 浏览器
-      this.browser = new PuppeteerBrowser();
-      await this.browser.launch();
+      // 静默模式下不启动浏览器
+      if (!silent) {
+        // 1. 启动 Puppeteer 浏览器
+        this.browser = new PuppeteerBrowser();
+        await this.browser.launch();
 
-      // 2. 获取 AI 配置
-      const aiConfig = this.configManager.getAIConfig();
+        // 2. 获取 AI 配置
+        const aiConfig = this.configManager.getAIConfig();
 
-      // 3. 初始化各模块(传递 AI 配置)
-      this.apiExtractor = new PuppeteerApiExtractor(this.browser, this.configManager, aiConfig);
+        // 3. 初始化浏览器相关模块(传递 AI 配置)
+        this.apiExtractor = new PuppeteerApiExtractor(this.browser, this.configManager, aiConfig);
+      }
+
+      // HTTP API提取器和验证器总是需要
       this.httpApiExtractor = new HttpApiExtractor();
       this.validator = new SubscriptionValidator();
 
@@ -229,7 +237,13 @@ export class AutoUpdateService {
             return httpUrl;
           }
         } catch (error) {
-          logger.warn('HTTP API提取失败，将使用浏览器方式', error);
+          logger.warn('HTTP API提取失败', error);
+          if (this.silentMode) {
+            throw new AutoSubError(
+              ErrorCode.SUBSCRIPTION_EXTRACTION_FAILED,
+              'HTTP API提取失败，静默模式下无法使用浏览器方式'
+            );
+          }
         }
       }
 
@@ -244,12 +258,31 @@ export class AutoUpdateService {
             logger.info('使用已保存的订阅地址');
             return site.subscriptionUrl;
           } else {
-            logger.info('订阅地址有效但缺少凭证文件，将重新提取以保存凭证');
+            logger.info('订阅地址有效但缺少凭证文件');
+            if (this.silentMode) {
+              throw new AutoSubError(
+                ErrorCode.CREDENTIAL_CAPTURE_FAILED,
+                '缺少凭证文件，静默模式下无法重新获取'
+              );
+            }
+            logger.info('将重新提取以保存凭证');
           }
+        } else if (this.silentMode) {
+          throw new AutoSubError(
+            ErrorCode.SUBSCRIPTION_VALIDATION_FAILED,
+            '已保存的订阅地址无效，静默模式下无法使用浏览器重新获取'
+          );
         }
       }
 
       // 优先级3: 使用 Puppeteer 浏览器提取
+      if (this.silentMode) {
+        throw new AutoSubError(
+          ErrorCode.SUBSCRIPTION_EXTRACTION_FAILED,
+          '无法使用静默方式提取订阅，请使用标准模式重新配置站点'
+        );
+      }
+
       logger.info('使用浏览器方式提取订阅地址...');
       return await this.apiExtractor.extract(site);
     } catch (error) {

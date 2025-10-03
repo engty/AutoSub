@@ -339,8 +339,8 @@ async function handleUpdate() {
   const service = new AutoUpdateService();
 
   try {
-    console.log(chalk.cyan('\n🚀 开始更新...\n'));
-    await service.initialize();
+    console.log(chalk.cyan('\n🚀 开始更新（静默模式）...\n'));
+    await service.initialize(true); // 使用静默模式
 
     if (siteId === 'all') {
       // 只更新有效站点
@@ -453,8 +453,8 @@ async function handleRefresh() {
   const service = new CookieRefreshService();
 
   try {
-    console.log(chalk.cyan('\n🚀 开始刷新Cookie...\n'));
-    await service.initialize(false); // 有头模式，用户可以看到浏览器
+    console.log(chalk.cyan('\n🔄 刷新站点凭证（静默模式）...\n'));
+    await service.initialize(true); // 使用headless模式
 
     if (siteId === 'all') {
       const results = await service.refreshAll(false); // 只刷新需要的
@@ -1304,11 +1304,12 @@ function displayUpdateResults(results: any[]) {
 cli
   .command('update [siteId]', '更新 Clash 订阅')
   .option('--all', '更新所有站点')
+  .option('--silent', '静默模式：仅使用HTTP API，不打开浏览器')
   .action(async (siteId, options) => {
     const service = new AutoUpdateService();
 
     try {
-      await service.initialize();
+      await service.initialize(options.silent || false);
 
       if (options.all || !siteId) {
         const results = await service.updateAll();
