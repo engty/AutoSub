@@ -203,10 +203,8 @@ npx clash-autosub uninstall --keep-config
 
 详细文档请查看 [docs](./docs) 目录：
 
-- [**技术栈变更说明**](./docs/TECH_STACK_MIGRATION.md) - ⭐ MCP → Puppeteer 迁移详解
+- [**技术栈变更说明**](./docs/TECH_STACK_MIGRATION.md) - ⭐ 技术架构演进详解
 - [开发守则](./docs/DEVELOPMENT.md) - 包含 ESM 导入规范、代码质量原则等
-- [产品需求文档 (PRD)](./docs/prd.md) - 原始需求(历史文档,基于 MCP)
-- [项目简报](./docs/project-brief.md) - 项目概述(历史文档,基于 MCP)
 - [基础需求](./docs/basic_prd.md)
 
 ## ❓ 故障排查

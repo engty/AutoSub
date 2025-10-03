@@ -116,14 +116,6 @@ export interface AIConfig {
 }
 
 /**
- * MCP 客户端选项
- */
-export interface MCPClientOptions {
-  headless?: boolean;
-  isolated?: boolean;
-}
-
-/**
  * 凭证捕获结果
  */
 export interface CapturedCredentials {
@@ -161,49 +153,6 @@ export interface UpdateResult {
   message: string;
   subscriptionUrl?: string;
   error?: Error;
-}
-
-// ==================== MCP 相关类型 ====================
-
-/**
- * MCP 网络请求类型
- */
-export interface MCPNetworkRequest {
-  url: string;
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
-  status?: number;
-  resourceType?: string;
-  requestHeaders?: Record<string, string>;
-  responseHeaders?: Record<string, string>;
-  responseBody?: any;
-}
-
-/**
- * MCP 页面元信息
- */
-export interface MCPPage {
-  pageIdx: number;
-  url: string;
-  title?: string;
-}
-
-/**
- * MCP 页面快照元素
- */
-export interface MCPSnapshotElement {
-  uid: string;
-  tag: string;
-  text?: string;
-  attributes?: Record<string, string>;
-}
-
-/**
- * MCP 脚本执行结果
- */
-export interface MCPScriptResult<T = any> {
-  success: boolean;
-  result?: T;
-  error?: string;
 }
 
 // ==================== 选择器配置类型 ====================
@@ -250,12 +199,6 @@ export interface SiteSelector {
  * 错误代码枚举
  */
 export enum ErrorCode {
-  // MCP 相关错误
-  MCP_CONNECTION_FAILED = 'MCP_CONNECTION_FAILED',
-  MCP_NAVIGATION_FAILED = 'MCP_NAVIGATION_FAILED',
-  MCP_SCRIPT_EXECUTION_FAILED = 'MCP_SCRIPT_EXECUTION_FAILED',
-  MCP_TOOL_CALL_FAILED = 'MCP_TOOL_CALL_FAILED',
-
   // Puppeteer 相关错误
   BROWSER_LAUNCH_FAILED = 'BROWSER_LAUNCH_FAILED',
   BROWSER_NOT_INITIALIZED = 'BROWSER_NOT_INITIALIZED',

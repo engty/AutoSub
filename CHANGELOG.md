@@ -197,14 +197,13 @@ Clash AutoSub 首个稳定版本，实现基于 Puppeteer 的完全自动化 VPN
 ### 📝 文档
 
 - 完整的 README.md 使用指南
-- 详细的 PRD.md 产品需求文档
 - CHANGELOG.md 版本历史
 
-### 🔄 技术迁移
+### 🔄 技术架构
 
-从 Chrome DevTools MCP 迁移到 Puppeteer 方案：
-- **更好的控制力** - Puppeteer 提供更直接的浏览器控制
-- **简化部署** - 无需额外的 MCP Server 进程
+项目采用现代化技术栈：
+- **更好的控制力** - Puppeteer 提供直接的浏览器控制
+- **简化部署** - 无需额外的服务进程
 - **更好的稳定性** - 减少中间层，降低故障点
 - **AI 增强** - 集成 AI 分析能力
 
@@ -226,8 +225,8 @@ Clash AutoSub 首个稳定版本，实现基于 Puppeteer 的完全自动化 VPN
 ### 主要开发里程碑
 
 - 项目初始化，确定技术栈
-- MCP 方案原型开发
-- Puppeteer 迁移重构
+- 核心功能开发
+- 自动化流程优化
 - AI 功能集成
 - Cookie 管理优化
 - 文档完善
