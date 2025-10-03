@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-10-03
+
+### ✨ 新增功能
+
+#### AI 增强
+- **AI 辅助验证** - 集成 DeepSeek/OpenRouter 分析订阅响应内容
+- **智能错误检测** - 识别 `{"status":"fail"}` 等 JSON 错误格式
+- **AI 视觉分析** - 可选的登录状态检测能力
+
+#### Cookie 管理优化
+- **过期检测** - 智能检测 Cookie 过期时间
+- **自动刷新** - 支持通过访问站点刷新 Cookie
+- **多存储支持** - 支持 localStorage/sessionStorage 作为有效凭证
+- **状态实时显示** - CLI 菜单实时标注 Cookie 有效性
+
+#### 凭证系统增强
+- **凭证外置存储** - 每个站点独立凭证文件（`~/.autosub/credentials/`）
+- **加密存储** - 使用 crypto-js 加密敏感信息
+- **自动检测** - 启动时自动刷新各站点凭证状态
+
+#### 订阅验证改进
+- **SSL 证书忽略** - 支持自签名证书（`curl -k` 模式）
+- **内容智能分析** - HTTP 状态码 + AI 内容分析 + YAML 格式检查
+- **降级机制** - AI 不可用时自动使用规则匹配
+
+#### CLI 体验优化
+- **详细日志** - 凭证捕获过程详细记录
+- **剪贴板清理** - 自动清理剪贴板避免读取旧数据
+- **错误提示优化** - 更友好的错误信息和建议
+
+### 🐛 问题修复
+- 修复糖果云剪贴板读取旧数据的问题
+- 修复牛牛云 localStorage 登录状态误判
+- 修复订阅地址有效但缺少凭证文件的问题
+
+### 📝 文档
+- 完善 README.md，添加 AI 功能说明
+- 更新 PRD.md 反映 Puppeteer 架构
+- 创建完整的 CHANGELOG.md
+- 移除文档中的隐私信息
+
+### 🔧 代码质量
+- 完整的隐私审查
+- 删除测试文件和开发工具配置
+- 更新 .gitignore
+- 优化错误处理和降级机制
+
+### 💥 破坏性变更
+- 订阅验证逻辑从单纯 HTTP 状态码检查升级为 AI 内容分析（可选配置）
+
 ## [1.0.0] - 2025-10-03
 
 ### 🎉 首次发布
