@@ -5,7 +5,7 @@ import { logger } from '../utils/logger.js';
  * Cookie过期信息
  */
 export interface CookieExpiryInfo {
-  type: 'session' | 'persistent' | 'none';
+  type: 'session' | 'persistent' | 'none' | 'storage';
   expiryDate?: Date;
   daysLeft?: number;
   needsRefresh: boolean;
@@ -19,7 +19,7 @@ export async function getCookieExpiryInfo(siteId: string): Promise<CookieExpiryI
   try {
     const stored = await readCredentials(siteId);
 
-    if (!stored || !Array.isArray(stored.cookies) || stored.cookies.length === 0) {
+    if (!stored) {
       return {
         type: 'none',
         needsRefresh: false,
@@ -27,6 +27,31 @@ export async function getCookieExpiryInfo(siteId: string): Promise<CookieExpiryI
       };
     }
 
+    // 检查所有凭证类型
+    const hasCookies = Array.isArray(stored.cookies) && stored.cookies.length > 0;
+    const hasLocalStorage = stored.localStorage && Object.keys(stored.localStorage).length > 0;
+    const hasSessionStorage =
+      stored.sessionStorage && Object.keys(stored.sessionStorage).length > 0;
+
+    // 如果都没有，返回 'none'
+    if (!hasCookies && !hasLocalStorage && !hasSessionStorage) {
+      return {
+        type: 'none',
+        needsRefresh: false,
+        hasExpired: true,
+      };
+    }
+
+    // 如果只有 localStorage/sessionStorage（没有 cookies），返回 'storage'
+    if (!hasCookies && (hasLocalStorage || hasSessionStorage)) {
+      return {
+        type: 'storage',
+        needsRefresh: false,
+        hasExpired: false,
+      };
+    }
+
+    // 有 cookies 的情况，继续检查过期时间
     let nearestExpiry = Infinity;
 
     for (const cookie of stored.cookies) {
@@ -104,6 +129,10 @@ export function compareCookieExpiry(oldCookies: Array<Record<string, any>>, newC
 export function formatExpiryInfo(info: CookieExpiryInfo): string {
   if (info.type === 'none') {
     return '无Cookie';
+  }
+
+  if (info.type === 'storage') {
+    return 'Storage 登录（长期有效）';
   }
 
   if (info.type === 'session') {

@@ -28,6 +28,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 每 200ms 检查一次
   - 检测到变化立即返回
 
+#### Cookie 状态显示误判问题（关键修复）
+- **问题描述**：使用 localStorage/sessionStorage 登录的站点显示"[无Cookie]"
+- **根本原因**：`getCookieExpiryInfo` 函数只检查 cookies，忽略了 Web Storage
+- **修复方案**：
+  - 扩展 `CookieExpiryInfo` 类型，添加 `'storage'` 类型
+  - 修改 `getCookieExpiryInfo` 支持检测 localStorage/sessionStorage
+  - 修改 `formatExpiryInfo` 显示"Storage 登录（长期有效）"
+- **影响范围**：所有使用 Web Storage 登录的站点（如牛牛云）都能正确显示状态
+
 #### 技术改进
 - **新增函数**：
   - `closeOverlaysWithEsc()` - 按 ESC 关闭遮挡层
@@ -39,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `clickButtonWithAI()` - AI 识别点击流程增强
   - `clickButtonWithTextMatching()` - 文本匹配点击流程增强
   - `extract()` - 主流程添加预防性遮挡层清理
+  - `getCookieExpiryInfo()` - 支持 Web Storage 凭证检测
+  - `formatExpiryInfo()` - 支持 Storage 类型显示
 
 #### 日志优化
 - 详细记录每个步骤的执行情况
@@ -52,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 📈 预期效果
 - 订阅地址提取成功率从 ~30% 提升至 ~95%+
+- Web Storage 登录的站点状态显示正确
 - 减少用户手动干预次数
 - 提升自动化可靠性
 
