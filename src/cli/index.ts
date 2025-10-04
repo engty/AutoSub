@@ -1233,51 +1233,58 @@ async function handleSiteTest(url: string) {
     const { SiteTestService } = await import('../service/site-test.js');
     const { TestReportFormatter } = await import('../utils/test-report-formatter.js');
 
-    spinner.text = '启动浏览器...';
     const testService = new SiteTestService(url);
 
-    // 执行测试
-    spinner.text = '执行兼容性测试（请在浏览器中完成登录）...';
+    // 执行测试（停止 spinner 以允许用户交互）
+    spinner.stop();
     const report = await testService.runTest();
 
+    spinner.start('正在生成测试报告...');
     spinner.succeed('测试完成！');
     console.log();
 
-    // 格式化报告
-    const aiConfig = getConfigManager().getAIConfig();
-    const formatter = new TestReportFormatter(aiConfig);
-
-    const formattedReport = await formatter.format(report);
+    // 格式化报告（不使用AI）
+    const formatter = new TestReportFormatter();
+    const formattedReport = formatter['formatWithoutAI'](report);
 
     // 显示报告
     console.log(chalk.cyan.bold('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
     console.log(chalk.cyan.bold('  测试报告'));
     console.log(chalk.cyan.bold('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'));
 
-    // 总结
-    console.log(chalk.bold('总结:'));
+    // 兼容性总结
     console.log(formattedReport.summary);
     console.log();
+
+    // 当前有效订阅地址（仅显示剪贴板提取的标准格式）
+    if (report.clipboardSubscriptionUrl) {
+      console.log(chalk.green.bold('📋 当前有效订阅地址（标准可用格式）:'));
+      console.log(chalk.yellow(`   ${report.clipboardSubscriptionUrl}`));
+      console.log();
+    } else if (report.subscriptionUrl && !report.urlTransformPattern) {
+      // 仅当API URL格式正确（无需转换）时才显示
+      console.log(chalk.green.bold('📋 当前有效订阅地址（标准可用格式）:'));
+      console.log(chalk.yellow(`   ${report.subscriptionUrl}`));
+      console.log();
+    } else if (report.subscriptionUrl && report.urlTransformPattern) {
+      // 有转换规则，说明API格式不对，不显示API URL
+      console.log(chalk.yellow.bold('⚠️  未能提取标准格式订阅地址'));
+      console.log(chalk.gray('   提示：未找到"复制订阅"按钮，无法获取正确格式的订阅URL'));
+      console.log(chalk.gray('   API返回的URL格式需要转换，详见下方转换规则分析'));
+      console.log();
+    }
 
     // 详细信息
     console.log(formattedReport.details);
 
     // 建议
     if (formattedReport.recommendations.length > 0) {
-      console.log(chalk.bold('建议:\n'));
+      console.log(chalk.bold('💡 建议:\n'));
       formattedReport.recommendations.forEach((rec, index) => {
         console.log(`${index + 1}. ${rec}`);
       });
       console.log();
     }
-
-    // 提供原始报告JSON（用于提交Issue）
-    console.log(chalk.gray('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
-    console.log(chalk.gray('如需提交Issue，请附上以下原始测试数据：\n'));
-    console.log(chalk.gray('```json'));
-    console.log(chalk.gray(JSON.stringify(report, null, 2)));
-    console.log(chalk.gray('```'));
-    console.log();
 
   } catch (error: any) {
     spinner.fail('测试失败');

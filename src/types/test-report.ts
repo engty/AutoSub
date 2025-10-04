@@ -50,9 +50,16 @@ export interface TestReport {
   };
 
   // 订阅地址提取
-  subscriptionUrl?: string;
+  subscriptionUrl?: string; // API提取的订阅地址
+  clipboardSubscriptionUrl?: string; // 从剪贴板提取的正确订阅地址（基准）
   subscriptionExtracted: boolean;
   extractionMethod?: 'api' | 'clipboard' | 'network';
+  urlTransformPattern?: {
+    // URL转换规则（API地址 -> 正确地址）
+    apiFormat: string; // API返回的格式
+    correctFormat: string; // 正确的格式
+    transformRule?: string; // 转换规则描述
+  };
 
   // 订阅验证
   subscriptionValid?: boolean;

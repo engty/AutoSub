@@ -278,9 +278,21 @@ export class LoginDetector {
       .then(() => 'URL Hash变化')
       .catch(() => null);
 
+    // 过滤掉 null 结果，只保留成功的检测
+    // null 结果会被转换为永远 pending 的 Promise，不会影响 race
+    const validPromises = [...promises, hashChangePromise].map(p =>
+      p.then(result => {
+        if (result) {
+          return result; // 成功的检测
+        } else {
+          // null 结果转换为永远 pending 的 Promise，不会让 race 提前结束
+          return new Promise<string>(() => {});
+        }
+      })
+    );
+
     const results = await Promise.race([
-      ...promises,
-      hashChangePromise,
+      ...validPromises,
       new Promise<null>((resolve) => setTimeout(() => resolve(null), timeout)),
     ]);
 
