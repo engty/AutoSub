@@ -124,9 +124,13 @@ export class ApiDetector {
       };
 
       // 设置订阅地址提取方式
+      // 同时保存 subscribeUrlField 和 tokenField（如果都存在）
+      // 这样可以支持 URL 组件模式重建订阅地址
       if (subscribeUrlField) {
         config.subscribeUrlField = subscribeUrlField;
-      } else if (tokenField) {
+      }
+
+      if (tokenField) {
         config.tokenField = tokenField;
         // 尝试推断URL模式
         config.subscribeUrlPattern = this.inferUrlPattern(data, tokenField);
@@ -218,16 +222,18 @@ export class ApiDetector {
    */
   private detectAuthSource(request: NetworkRequest, localStorage?: Record<string, string>): 'cookie' | 'localStorage' | 'both' {
     const hasCookie = request.requestHeaders?.['Cookie'] || request.requestHeaders?.['cookie'];
-    const hasAuthHeader = request.requestHeaders?.['Authorization'] || request.requestHeaders?.['authorization'];
 
-    // 如果有Authorization头且localStorage中有token，认为是localStorage认证
-    if (hasAuthHeader && localStorage) {
-      const hasTokenInStorage = this.detectLocalStorageAuthField(localStorage) !== null;
-      if (hasTokenInStorage) {
-        return hasCookie ? 'both' : 'localStorage';
-      }
+    // 优先检查 localStorage 中是否有认证字段
+    // 不依赖 Authorization header 的存在，因为有些 API 不在 header 中传递 token
+    const localStorageAuthField = this.detectLocalStorageAuthField(localStorage);
+
+    // 如果 localStorage 中有认证 token，优先判定为 localStorage 认证
+    if (localStorageAuthField) {
+      // 如果同时有 Cookie，标记为 both（某些站点同时使用两者）
+      return hasCookie ? 'both' : 'localStorage';
     }
 
+    // 如果 localStorage 中没有 token，默认返回 cookie
     return 'cookie';
   }
 
@@ -237,18 +243,21 @@ export class ApiDetector {
   private detectLocalStorageAuthField(localStorage?: Record<string, string>): string | null {
     if (!localStorage) return null;
 
-    // 常见的认证字段
-    const candidates = ['app-user', 'user', 'auth', 'token'];
+    // 常见的认证字段（优先级从高到低）
+    const candidates = ['app-user', 'user', 'auth', 'token', 'info', 'userInfo', 'user-info'];
 
     for (const key of candidates) {
       if (localStorage[key]) {
         try {
           const parsed = JSON.parse(localStorage[key]);
-          if (parsed.token || parsed.auth_data || parsed.user?.token) {
-            return `${key}.token`;
+          // 检测多种常见的token字段名
+          if (parsed.token || parsed.Token || parsed.auth_data || parsed.user?.token) {
+            // 优先使用 Token（大写），如果不存在则使用 token（小写）
+            const tokenField = parsed.Token ? 'Token' : 'token';
+            return `${key}.${tokenField}`;
           }
         } catch {
-          // 不是JSON，可能直接就是token
+          // 不是JSON，可能直接就是token字符串
           if (localStorage[key].length > 20) {
             return key;
           }

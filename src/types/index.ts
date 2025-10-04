@@ -1,5 +1,7 @@
 // ==================== 基础配置类型 ====================
 
+import { SubscriptionUrlComponents } from '../utils/subscription-url-parser';
+
 /**
  * 登录检测配置
  */
@@ -28,16 +30,25 @@ export interface SiteSelectors {
 export interface HttpApiConfig {
   url: string;           // API 端点 URL
   method: 'GET' | 'POST'; // HTTP 方法
-  
+
   // 认证配置
   authSource: 'cookie' | 'localStorage' | 'both'; // 认证来源
   authField?: string;   // localStorage 中的认证字段路径，如 "app-user.token"
-  
-  // 订阅地址提取方式（二选一）
-  subscribeUrlField?: string; // 直接提取订阅地址字段，如 "data.subscribe_url"
+
+  // ========== 订阅地址提取方式（支持三种模式） ==========
+
+  // 方式1: 新的URL组件模式（推荐）- 支持动态IP/端口更新
+  subscriptionUrl?: SubscriptionUrlComponents; // URL组件配置
   tokenField?: string;        // 提取token字段，如 "data.token"
+  urlField?: string;          // 提取完整URL字段（用于更新host/port），如 "data.subscribe_url"
+
+  // 方式2: 传统token拼接模式（向后兼容）
   subscribeUrlPattern?: string; // token拼接模式，如 "https://example.com/sub?token={token}"
-  
+  // tokenField 与方式1共用
+
+  // 方式3: 直接提取订阅地址（向后兼容）
+  subscribeUrlField?: string; // 直接提取订阅地址字段，如 "data.subscribe_url"
+
   // 可选配置
   headers?: Record<string, string>; // 额外的请求头
   params?: Record<string, any>;     // URL 参数

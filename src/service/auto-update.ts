@@ -4,8 +4,10 @@ import { HttpApiExtractor } from '../subscription/http-api-extractor.js';
 import { SubscriptionValidator } from '../subscription/validator.js';
 import { ClashConfigUpdater, ClashUrlReplacer } from '../clash/index.js';
 import { getConfigManager, ConfigManager } from '../config/manager.js';
+import { CookieRefreshService } from './cookie-refresh.js';
 import { logger } from '../utils/logger.js';
 import { ErrorCode, AutoSubError, SiteConfig } from '../types/index.js';
+import { parseSubscriptionUrl, isValidUrlComponents } from '../utils/subscription-url-parser.js';
 
 /**
  * 更新结果
@@ -236,12 +238,38 @@ export class AutoUpdateService {
             logger.info('✓ HTTP API静默提取成功');
             return httpUrl;
           }
-        } catch (error) {
+        } catch (error: any) {
+          // 检测是否为Cookie过期错误
+          if (error.code === 'AUTH_EXPIRED') {
+            logger.warn('检测到Cookie已过期，尝试自动刷新...');
+
+            if (this.silentMode) {
+              // 静默模式：自动使用headless模式刷新Cookie
+              try {
+                await this.autoRefreshCookieInSilentMode(site);
+
+                // 刷新成功后重试API请求
+                logger.info('Cookie刷新成功，重试HTTP API提取...');
+                const httpUrl = await this.httpApiExtractor.extractFromSite(site);
+                if (httpUrl) {
+                  logger.info('✓ HTTP API静默提取成功（刷新后）');
+                  return httpUrl;
+                }
+              } catch (refreshError) {
+                logger.error('自动刷新Cookie失败', refreshError);
+                throw new AutoSubError(
+                  ErrorCode.CREDENTIAL_CAPTURE_FAILED,
+                  `Cookie已过期且自动刷新失败: ${refreshError instanceof Error ? refreshError.message : String(refreshError)}`
+                );
+              }
+            }
+          }
+
           logger.warn('HTTP API提取失败', error);
           if (this.silentMode) {
             throw new AutoSubError(
               ErrorCode.SUBSCRIPTION_EXTRACTION_FAILED,
-              'HTTP API提取失败，静默模式下无法使用浏览器方式'
+              `HTTP API提取失败: ${error.message || '未知错误'}，静默模式下无法使用浏览器方式`
             );
           }
         }
@@ -262,7 +290,7 @@ export class AutoUpdateService {
             if (this.silentMode) {
               throw new AutoSubError(
                 ErrorCode.CREDENTIAL_CAPTURE_FAILED,
-                '缺少凭证文件，静默模式下无法重新获取'
+                '缺少凭证文件，静默模式下无法重新获取。请运行: autosub refresh-credentials --headless'
               );
             }
             logger.info('将重新提取以保存凭证');
@@ -270,7 +298,7 @@ export class AutoUpdateService {
         } else if (this.silentMode) {
           throw new AutoSubError(
             ErrorCode.SUBSCRIPTION_VALIDATION_FAILED,
-            '已保存的订阅地址无效，静默模式下无法使用浏览器重新获取'
+            '已保存的订阅地址无效，静默模式下无法使用浏览器重新获取。请运行: autosub add 重新配置站点'
           );
         }
       }
@@ -279,7 +307,7 @@ export class AutoUpdateService {
       if (this.silentMode) {
         throw new AutoSubError(
           ErrorCode.SUBSCRIPTION_EXTRACTION_FAILED,
-          '无法使用静默方式提取订阅，请使用标准模式重新配置站点'
+          '无法使用静默方式提取订阅，请运行: autosub add 配置站点或 autosub update（标准模式）'
         );
       }
 
@@ -288,6 +316,35 @@ export class AutoUpdateService {
     } catch (error) {
       logger.error('提取订阅地址失败', error);
       throw error;
+    }
+  }
+
+  /**
+   * 静默模式下自动刷新Cookie
+   */
+  private async autoRefreshCookieInSilentMode(site: SiteConfig): Promise<void> {
+    logger.info(`正在为 ${site.name} 自动刷新Cookie（headless模式）...`);
+
+    const refreshService = new CookieRefreshService();
+    try {
+      await refreshService.initialize(true); // headless模式
+      const result = await refreshService.refreshSite(site.id);
+
+      if (!result.success) {
+        throw new Error(result.error || '刷新失败');
+      }
+
+      if (!result.refreshed) {
+        logger.warn('Cookie未被服务器刷新，但仍可使用');
+      } else {
+        logger.info('✓ Cookie刷新成功');
+      }
+
+      // 等待服务器端session完全生效
+      logger.info('等待Cookie生效...');
+      await this.delay(2000);
+    } finally {
+      await refreshService.cleanup();
     }
   }
 
@@ -320,17 +377,59 @@ export class AutoUpdateService {
   ): Promise<void> {
     // 保存旧的订阅 URL（用于 Clash 配置匹配）
     const oldSubscriptionUrl = site.subscriptionUrl;
-    
+
+    // ========== 初始化URL组件配置（首次添加站点时）==========
+    // 重新读取最新配置，确保获取到 detectAndSaveApiConfig 保存的 api 字段
+    const latestSite = this.configManager.getSiteById(site.id);
+    if (latestSite) {
+      site = latestSite;
+    }
+
+    // 如果还没有 URL 组件配置，从首次获取的订阅地址解析并保存
+    // 这对所有提取模式都适用，确保后续更新可以使用正确的 URL 格式
+    if (!site.api?.subscriptionUrl || !isValidUrlComponents(site.api.subscriptionUrl)) {
+      try {
+        logger.info('首次获取订阅地址，解析并保存URL组件...');
+        const components = parseSubscriptionUrl(subscriptionUrl);
+
+        // 确保 api 对象存在
+        if (!site.api) {
+          site.api = {} as any;
+        }
+
+        // 保存解析后的组件到API配置
+        site.api!.subscriptionUrl = {
+          protocol: components.protocol,
+          host: components.host,
+          port: components.port,
+          path: components.path,
+          tokenParam: components.tokenParam
+        };
+
+        logger.info('✓ URL组件已保存到配置', {
+          host: components.host,
+          port: components.port,
+          path: components.path
+        });
+      } catch (error) {
+        logger.warn('解析订阅地址失败，将继续使用传统模式', error);
+        // 解析失败不影响正常流程，继续使用传统的 subscribeUrlPattern
+      }
+    } else {
+      logger.debug('URL组件配置已存在，跳过初始化');
+    }
+
     // 更新站点配置
     this.configManager.updateSite(site.id, {
       subscriptionUrl,
       lastUpdate: new Date().toISOString(),
       cookieValid: true,
+      ...(site.api && { api: site.api }) // 如果修改了api配置，也要保存
     });
 
     this.configManager.save();
     logger.info('✓ 站点配置已更新');
-    
+
     // 更新 Clash 配置文件中的订阅 URL
     const clashConfigPath = this.configManager.getConfig().clash.configPath;
     if (clashConfigPath) {
@@ -342,7 +441,7 @@ export class AutoUpdateService {
           oldSubscriptionUrl || null,
           subscriptionUrl
         );
-        
+
         if (replaced) {
           logger.info('✓ Clash 配置文件中的订阅 URL 已更新');
         } else {

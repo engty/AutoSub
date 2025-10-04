@@ -9,6 +9,7 @@ import * as https from 'https';
 import { SiteConfig, HttpApiConfig } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 import { readCredentials } from '../credentials/manager.js';
+import { buildSubscriptionUrl, updateHostAndPort, isValidUrlComponents } from '../utils/subscription-url-parser.js';
 
 export class HttpApiExtractor {
   /**
@@ -24,7 +25,8 @@ export class HttpApiExtractor {
       return await this.extract(siteConfig, siteConfig.api);
     } catch (error) {
       logger.error('HTTP API提取失败', error);
-      return null;
+      // 向上层抛出原始错误，保留错误类型信息
+      throw error;
     }
   }
 
@@ -38,7 +40,9 @@ export class HttpApiExtractor {
       // 1. 加载凭证
       const credentials = await readCredentials(siteConfig.id);
       if (!credentials || !credentials.cookies || credentials.cookies.length === 0) {
-        throw new Error('未找到有效的 Cookie 凭证');
+        const error = new Error('未找到有效的 Cookie 凭证') as any;
+        error.code = 'CREDENTIALS_NOT_FOUND';
+        throw error;
       }
 
       // 2. 构建请求配置
@@ -51,11 +55,61 @@ export class HttpApiExtractor {
       logger.info('API 响应状态:', response.status);
       logger.info('API 响应数据:', JSON.stringify(response.data, null, 2));
 
-      // 4. 从响应中提取订阅地址
+      // 4. 检查认证状态
+      if (response.status === 401 || response.status === 403) {
+        // 检查响应消息是否包含登录过期相关关键词
+        const responseText = JSON.stringify(response.data).toLowerCase();
+        const authExpiredKeywords = ['未登录', '登录已过期', '登陆已过期', 'not logged', 'login expired', 'unauthorized'];
+
+        if (authExpiredKeywords.some(keyword => responseText.includes(keyword))) {
+          const error = new Error(`认证已过期: ${response.data?.message || '未登录或登录已过期'}`) as any;
+          error.code = 'AUTH_EXPIRED';
+          error.statusCode = response.status;
+          throw error;
+        }
+      }
+
+      // 5. 从响应中提取订阅地址
       let subscriptionUrl: string | null = null;
 
-      // 优先使用 token + URL 模式构建
-      if (apiConfig.tokenField && apiConfig.subscribeUrlPattern) {
+      // ========== 方式1: 使用URL组件配置（新的推荐方式）==========
+      // 支持动态更新host/port，适应IP地址和端口变化
+      if (apiConfig.subscriptionUrl && isValidUrlComponents(apiConfig.subscriptionUrl)) {
+        logger.info('使用URL组件模式构建订阅地址');
+
+        // 提取token
+        if (!apiConfig.tokenField) {
+          throw new Error('URL组件模式需要配置 tokenField');
+        }
+
+        const token = this.extractFieldFromResponse(response.data, apiConfig.tokenField);
+        if (!token) {
+          throw new Error(`无法从响应中提取token (字段: ${apiConfig.tokenField})`);
+        }
+
+        // 更新host和port（如果API返回了完整URL）
+        let updatedComponents = apiConfig.subscriptionUrl;
+        if (apiConfig.urlField) {
+          const fullUrl = this.extractFieldFromResponse(response.data, apiConfig.urlField);
+          if (fullUrl) {
+            logger.info(`从API响应更新host/port: ${fullUrl}`);
+            updatedComponents = updateHostAndPort(apiConfig.subscriptionUrl, fullUrl);
+
+            // 保存更新后的组件到siteConfig（这样下次请求可以使用新的host/port）
+            if (siteConfig.api) {
+              siteConfig.api.subscriptionUrl = updatedComponents;
+              logger.debug('已更新配置中的host/port');
+            }
+          }
+        }
+
+        // 构建最终订阅地址
+        subscriptionUrl = buildSubscriptionUrl(updatedComponents, token);
+        logger.info(`✓ URL组件模式构建成功: ${subscriptionUrl.substring(0, 50)}...`);
+      }
+
+      // ========== 方式2: 使用传统 token + URL 模式（向后兼容）==========
+      else if (apiConfig.tokenField && apiConfig.subscribeUrlPattern) {
         const token = this.extractFieldFromResponse(response.data, apiConfig.tokenField);
         if (token) {
           subscriptionUrl = apiConfig.subscribeUrlPattern.replace('{token}', token);
@@ -63,8 +117,8 @@ export class HttpApiExtractor {
         }
       }
 
-      // 如果没有 token 模式，尝试直接提取订阅地址字段
-      if (!subscriptionUrl && apiConfig.subscribeUrlField) {
+      // ========== 方式3: 直接提取订阅地址字段（向后兼容）==========
+      else if (apiConfig.subscribeUrlField) {
         subscriptionUrl = this.extractFieldFromResponse(response.data, apiConfig.subscribeUrlField);
         if (subscriptionUrl) {
           logger.info(`从响应字段提取订阅地址: ${subscriptionUrl.substring(0, 50)}...`);
@@ -78,9 +132,16 @@ export class HttpApiExtractor {
       logger.info(`✓ 成功获取订阅地址: ${subscriptionUrl.substring(0, 50)}...`);
       return subscriptionUrl;
 
-    } catch (error) {
+    } catch (error: any) {
+      // 保留错误代码，便于上层识别错误类型
+      if (error.code) {
+        throw error;
+      }
+
       logger.error('HTTP API 提取失败', error);
-      throw new Error(`HTTP API 提取订阅地址失败: ${error instanceof Error ? error.message : String(error)}`);
+      const newError = new Error(`HTTP API 提取订阅地址失败: ${error instanceof Error ? error.message : String(error)}`) as any;
+      newError.originalError = error;
+      throw newError;
     }
   }
 

@@ -5,6 +5,55 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2025-10-03
+
+### 🚀 重大改进
+
+#### Cookie过期自动刷新机制
+- **智能检测** - HTTP API在遇到403/401认证失败时，自动识别Cookie过期
+- **自动修复** - 静默模式下检测到Cookie过期后，自动使用headless模式刷新Cookie
+- **无缝体验** - Cookie刷新成功后自动重试API请求，用户无需手动干预
+
+#### 错误处理优化
+- **结构化错误** - HttpApiExtractor现在返回带有错误代码的结构化错误信息
+  - `AUTH_EXPIRED`: 认证已过期（403/401 + 关键词检测）
+  - `CREDENTIALS_NOT_FOUND`: 未找到凭证文件
+- **友好提示** - 错误消息中包含具体的解决方案和CLI命令
+  - 缺少凭证：`autosub refresh-credentials --headless`
+  - 订阅地址无效：`autosub add` 重新配置
+  - 静默模式不可用：`autosub update` 使用标准模式
+
+#### 工作流程改进
+```
+旧流程（v1.3.0）：
+HTTP API失败 → 直接报错 → 用户手动刷新Cookie → 重新运行
+
+新流程（v1.3.1）：
+HTTP API失败 → 检测到AUTH_EXPIRED → 自动刷新Cookie → 重试成功 ✓
+```
+
+### 🐛 问题修复
+
+#### 解决v1.3.0静默模式失败问题
+- **问题**: 静默模式下Cookie过期导致更新失败，无明确解决方案
+- **修复**:
+  - 自动检测403响应中的"未登录或登陆已过期"等关键词
+  - 在静默模式下自动触发headless Cookie刷新
+  - 刷新成功后立即重试HTTP API请求
+
+### 📝 技术细节
+
+#### 文件变更
+- `src/subscription/http-api-extractor.ts` (src/subscription/http-api-extractor.ts:35-109)
+  - 添加认证状态检测逻辑（401/403检测）
+  - 添加关键词匹配识别Cookie过期
+  - 返回结构化错误对象（带error.code）
+
+- `src/service/auto-update.ts` (src/service/auto-update.ts:229-344)
+  - 添加Cookie过期检测和处理逻辑
+  - 实现`autoRefreshCookieInSilentMode()`方法
+  - 优化错误提示消息，提供具体CLI命令
+
 ## [1.2.0] - 2025-10-03
 
 ### ✨ 新增功能
