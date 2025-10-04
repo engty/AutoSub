@@ -81,7 +81,22 @@ export class PuppeteerApiExtractor {
       // 尝试点击"复制链接"按钮来触发订阅地址获取
       await this.clickCopyLinkButton(page);
 
-      // 策略1: 尝试从剪贴板读取订阅地址
+      // 策略1: 尝试从模态框中提取订阅链接(处理"一键订阅"按钮弹窗的情况)
+      const modalUrl = await this.extractUrlFromModal(page);
+      if (modalUrl && this.isValidSubscriptionUrl(modalUrl)) {
+        logger.info(`✓ 从模态框获取到订阅地址: ${modalUrl}`);
+
+        // 成功获取订阅地址，说明用户已登录，保存最新凭证
+        await this.captureAndPersistCredentials(page, siteConfig);
+
+        // 检测并保存API配置（后台静默执行）
+        await this.detectAndSaveApiConfig(page, siteConfig);
+
+        this.networkListener.stopListening(page);
+        return modalUrl;
+      }
+
+      // 策略2: 尝试从剪贴板读取订阅地址
       const clipboardUrl = await this.readClipboard(page);
       if (clipboardUrl && this.isValidSubscriptionUrl(clipboardUrl)) {
         logger.info(`✓ 从剪贴板获取到订阅地址: ${clipboardUrl}`);
@@ -916,6 +931,98 @@ export class PuppeteerApiExtractor {
 
     logger.error('❌ 所有点击策略均失败');
     return false;
+  }
+
+  /**
+   * 从模态框/弹窗中提取订阅链接
+   * 处理"一键订阅"按钮点击后弹出模态框显示链接的情况
+   */
+  private async extractUrlFromModal(page: any): Promise<string | null> {
+    try {
+      logger.info('检查是否有模态框弹出...');
+
+      // 等待模态框出现(最多等待2秒)
+      await page.waitForTimeout(500);
+
+      // 常见的模态框选择器
+      const modalSelectors = [
+        '.modal',
+        '.dialog',
+        '.popup',
+        '[role="dialog"]',
+        '.el-dialog',
+        '.ant-modal',
+        '.van-dialog',
+        '.layui-layer',
+      ];
+
+      let modalElement = null;
+      for (const selector of modalSelectors) {
+        try {
+          const element = await page.$(selector);
+          if (element) {
+            const isVisible = await element.isVisible();
+            if (isVisible) {
+              modalElement = element;
+              logger.info(`✓ 发现可见模态框: ${selector}`);
+              break;
+            }
+          }
+        } catch (e) {
+          // 继续尝试下一个选择器
+        }
+      }
+
+      if (!modalElement) {
+        logger.debug('未发现模态框');
+        return null;
+      }
+
+      // 在模态框中查找包含订阅链接的元素
+      const subscriptionUrl = await page.evaluate((modal: any) => {
+        // 查找所有文本节点和input元素
+        const elements = modal.querySelectorAll('*');
+        const urlPattern = /https?:\/\/[^\s"'<>)]+/gi;
+
+        // 优先查找input/textarea中的URL
+        for (const el of elements) {
+          if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+            const value = (el as HTMLInputElement).value;
+            const match = value.match(urlPattern);
+            if (match && match[0].includes('subscribe')) {
+              return match[0];
+            }
+          }
+        }
+
+        // 查找文本内容中的URL
+        for (const el of elements) {
+          const text = el.textContent || '';
+          const match = text.match(urlPattern);
+          if (match) {
+            // 检查是否像订阅URL
+            for (const url of match) {
+              if (url.includes('subscribe') || url.includes('sub') || url.includes('token=')) {
+                return url;
+              }
+            }
+          }
+        }
+
+        return null;
+      }, modalElement);
+
+      if (subscriptionUrl) {
+        logger.info(`✓ 从模态框提取到链接: ${subscriptionUrl.substring(0, 50)}...`);
+        return subscriptionUrl;
+      }
+
+      logger.debug('模态框中未找到订阅链接');
+      return null;
+    } catch (error) {
+      logger.debug(`提取模态框链接失败: ${error instanceof Error ? error.message : String(error)}`);
+      return null;
+    }
   }
 
   /**
