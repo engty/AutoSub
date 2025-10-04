@@ -1364,7 +1364,10 @@ function displayUpdateResults(results: any[]) {
     console.log(color(`${icon} ${result.siteId}`));
 
     if (result.success) {
-      console.log(chalk.gray(`   节点数量: ${result.nodeCount || 0}`));
+      // 只有当节点数量大于0时才显示
+      if (result.nodeCount && result.nodeCount > 0) {
+        console.log(chalk.gray(`   节点数量: ${result.nodeCount}`));
+      }
       // 使用终端链接格式，可点击复制
       if (result.subscriptionUrl) {
         console.log(chalk.gray(`   订阅地址: `) + chalk.blue.underline(result.subscriptionUrl));

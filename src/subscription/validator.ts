@@ -53,11 +53,11 @@ export class SubscriptionValidator {
         } else {
           result.nodeCount = nodeCount;
           result.warning = '订阅节点数量无法统计，已跳过 Clash 合并';
-          logger.warn(result.warning);
+          logger.debug(result.warning); // 改为debug级别
         }
       } else if (response.data) {
         result.warning = '订阅内容未解析，已跳过 Clash 合并';
-        logger.warn(result.warning);
+        logger.debug(result.warning); // 改为debug级别
       }
 
       return result;
