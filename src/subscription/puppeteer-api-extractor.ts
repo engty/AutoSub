@@ -1233,19 +1233,19 @@ export class PuppeteerApiExtractor {
     try {
       console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('📌 浏览器已打开订阅站点');
-      
+
       if (autoLoginAttempted) {
-        console.log('📌 已尝试自动注入凭证，请检查是否成功登录');
+        console.log('📌 已尝试自动注入凭证，请检查是否成功登录并找到有【订阅链接】按钮的页面');
       } else {
-        console.log('📌 请在浏览器中完成登录操作');
+        console.log('📌 请【登录】并找到有【订阅链接】按钮的页面');
       }
-      
+
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-      
-      const answer = await rl.question('✅ 完成登录后，输入 y 开始获取订阅信息；输入 n 取消: ');
+
+      const answer = await rl.question('✅ 完成后按回车继续，输入 n 取消: ');
       const value = answer.trim().toLowerCase();
-      
-      if (value !== 'y' && value !== 'yes' && value !== '') {
+
+      if (value === 'n' || value === 'no') {
         throw new AutoSubError(
           ErrorCode.USER_CANCELLED,
           '用户取消操作'
