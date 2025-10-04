@@ -181,7 +181,12 @@ export class AutoUpdateService {
         validation = await this.validator.validate(subscriptionUrl);
       } catch (error: any) {
         // 检查是否是CloudFlare拦截（403）
-        if (error.message && error.message.includes('403') && error.message.includes('CloudFlare')) {
+        const errorMsg = error.message || '';
+        const isCloudFlare = (errorMsg.includes('403') || errorMsg.includes('403')) &&
+                            (errorMsg.includes('CloudFlare') || errorMsg.includes('cloudflare') ||
+                             errorMsg.includes('禁止访问') || errorMsg.includes('错误页面'));
+
+        if (isCloudFlare) {
           logger.warn('⚠️ 订阅地址被CloudFlare拦截，跳过验证步骤');
           logger.info(`✓ 订阅地址: ${subscriptionUrl}`);
           cloudflareBlocked = true;
@@ -193,6 +198,22 @@ export class AutoUpdateService {
           };
         } else {
           throw error;
+        }
+      }
+
+      // 如果验证返回无效且是CloudFlare拦截,也标记为cloudflareBlocked
+      if (validation && !validation.valid && validation.error) {
+        const errorMsg = validation.error;
+        const isCloudFlare = (errorMsg.includes('403') || errorMsg.includes('403')) &&
+                            (errorMsg.includes('CloudFlare') || errorMsg.includes('cloudflare') ||
+                             errorMsg.includes('禁止访问') || errorMsg.includes('错误页面'));
+
+        if (isCloudFlare) {
+          logger.warn('⚠️ 订阅地址被CloudFlare拦截，跳过验证步骤');
+          logger.info(`✓ 订阅地址: ${subscriptionUrl}`);
+          cloudflareBlocked = true;
+          validation.valid = true; // 标记为有效以允许保存
+          validation.error = '站点使用CloudFlare拦截，无法进行订阅验证';
         }
       }
 

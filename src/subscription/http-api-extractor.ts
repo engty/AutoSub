@@ -92,8 +92,42 @@ export class HttpApiExtractor {
       // 3. 构建请求配置
       const requestConfig = this.buildRequestConfig(apiConfig, credentials.cookies, credentials.localStorage);
 
-      // 3. 发送请求
-      const response = await axios(requestConfig);
+      // 4. 发送请求（带重试机制）
+      let response;
+      const maxRetries = 3;
+      let lastError;
+
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          logger.info(`发送API请求 (尝试 ${attempt}/${maxRetries})...`);
+          response = await axios(requestConfig);
+          logger.info(`✓ 请求成功 (尝试 ${attempt}/${maxRetries})`);
+          break; // 成功则跳出循环
+        } catch (error: any) {
+          lastError = error;
+
+          // 检查是否是网络错误
+          const isNetworkError = error.code === 'ECONNRESET' ||
+                                 error.code === 'ETIMEDOUT' ||
+                                 error.code === 'ECONNREFUSED' ||
+                                 error.code === 'ENOTFOUND';
+
+          if (isNetworkError && attempt < maxRetries) {
+            const waitTime = attempt * 1000; // 递增等待时间: 1s, 2s, 3s
+            logger.warn(`⚠️ 网络错误 (${error.code})，${waitTime}ms后重试 (${attempt}/${maxRetries})...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            continue;
+          }
+
+          // 如果是最后一次尝试或非网络错误，直接抛出
+          logger.error(`请求失败 (尝试 ${attempt}/${maxRetries}):`, error.code || error.message);
+          throw error;
+        }
+      }
+
+      if (!response) {
+        throw lastError || new Error('请求失败: 未知错误');
+      }
 
       // 调试：打印响应数据
       logger.info('API 响应状态:', response.status);
@@ -207,12 +241,18 @@ export class HttpApiExtractor {
       validateStatus: () => true, // 接受所有状态码
       httpsAgent: new https.Agent({
         rejectUnauthorized: false, // 允许自签名证书
+        keepAlive: true, // 启用Keep-Alive
+        keepAliveMsecs: 1000,
+        maxSockets: 5,
+        maxFreeSockets: 2,
+        timeout: 30000,
       }),
       headers: {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
         'Accept': 'application/json, text/plain, */*',
         'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
         'Referer': apiConfig.url,
+        'Connection': 'keep-alive',
         ...apiConfig.headers,
       },
     };
