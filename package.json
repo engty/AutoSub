@@ -1,6 +1,6 @@
 {
   "name": "clash-autosub",
-  "version": "1.3.2",
+  "version": "1.4.0",
   "description": "基于 Node.js + Puppeteer 的 VPN 订阅全自动化工具。智能检测订阅API模式，首次登录后自动保存认证配置，后续更新使用纯HTTP请求实现静默后台执行（< 1秒），彻底解决动态订阅地址的手动维护负担。",
   "type": "module",
   "main": "dist/index.js",
@@ -12,7 +12,6 @@
     "dev": "tsx src/cli/index.ts",
     "build": "tsup",
     "start": "node dist/index.js",
-    "test": "vitest",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit"
@@ -65,8 +64,7 @@
     "prettier": "^3.6.2",
     "tsup": "^8.5.0",
     "tsx": "^4.20.6",
-    "typescript": "^5.9.3",
-    "vitest": "^1.6.1"
+    "typescript": "^5.9.3"
   },
   "files": [
     "dist",

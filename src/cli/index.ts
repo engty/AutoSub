@@ -173,22 +173,22 @@ async function showMainMenu() {
   const aiConfig = configManager.getAIConfig();
 
   // 生成动态状态指示
-  let clashStatusText = '1. Clash 路径配置';
+  let clashStatusText = '1. Clash 配置路径';
   if (config.clash?.configPath) {
     clashStatusText += chalk.green('（已配置）');
   } else {
     clashStatusText += chalk.red('（未配置）');
   }
 
-  let aiStatusText = '2. AI 智能识别设置';
+  let aiStatusText = '2. AI 智能识别';
   if (aiConfig?.enabled) {
-    aiStatusText += chalk.green('（已配置）');
+    aiStatusText += chalk.green('（已开启）');
   } else {
-    aiStatusText += chalk.red('（未配置）');
+    aiStatusText += chalk.red('（未开启）');
   }
 
   const siteCount = config.sites.length;
-  const siteStatusText = `3. 订阅站点管理${siteCount > 0 ? chalk.cyan(`（已保存 ${siteCount} 站点）`) : ''}`;
+  const siteStatusText = `3. 站点管理${siteCount > 0 ? chalk.cyan(`（${siteCount}）`) : ''}`;
 
   // 添加按键监听，按 Q 或 q 直接退出
   const promptPromise = inquirer.prompt([
@@ -1302,16 +1302,17 @@ function displayUpdateResults(results: any[]) {
 
 // 命令行模式
 cli
-  .command('update [siteId]', '更新 Clash 订阅')
-  .option('--all', '更新所有站点')
-  .option('--silent', '静默模式：仅使用HTTP API，不打开浏览器')
-  .action(async (siteId, options) => {
+  .command('update [siteId]', '更新 Clash 订阅（默认静默模式更新所有站点）')
+  .action(async (siteId) => {
     const service = new AutoUpdateService();
 
     try {
-      await service.initialize(options.silent || false);
+      // 当没有指定siteId时，使用静默模式更新所有站点
+      // 当指定siteId时，使用非静默模式更新指定站点
+      const useSilentMode = !siteId;
+      await service.initialize(useSilentMode);
 
-      if (options.all || !siteId) {
+      if (!siteId) {
         const results = await service.updateAll();
         displayUpdateResults(results);
       } else {
@@ -1376,7 +1377,7 @@ cli
     await handleUninstall(options.keepConfig);
   });
 
-cli.version('1.0.0');
+cli.version(VERSION);
 cli.help();
 
 // 导出供测试使用

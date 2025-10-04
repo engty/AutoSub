@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.2] - 2025-10-04
+## [1.4.0] - 2025-10-04
 
 ### 🐛 Bug修复
 
@@ -22,15 +22,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `both`: 至少需要一个
 - **修复强制Cookie问题** - 之前版本错误地要求所有站点必须有Cookie，导致localStorage认证的站点（如牛牛云）无法使用
 
+#### CLI命令优化
+- **版本号显示修复** - 修复 `--help` 显示版本号为 1.0.0 的问题，现在正确显示当前版本
+- **简化update命令** - 移除冗余的 `--silent` 和 `--all` 选项
+  - `clash-autosub update` - 默认静默模式更新所有站点（< 1秒）
+  - `clash-autosub update <siteId>` - 非静默模式更新指定站点
+
+#### 菜单文案优化
+- **精简菜单文字** - 使菜单更加简洁易读
+  - "订阅站点管理（已保存 3 站点）" → "站点管理（3）"
+  - "AI 智能识别设置（已配置）" → "AI 智能识别（已开启|未开启）"
+  - "Clash 路径配置（已配置）" → "Clash 配置路径（已配置）"
+
 ### 📝 变更详情
 
 **影响的文件：**
 - `src/subscription/api-detector.ts` - 扩展localStorage认证字段检测
 - `src/subscription/http-api-extractor.ts` - 修复凭证验证逻辑
+- `src/cli/index.ts` - CLI命令优化和菜单文案简化
 
 **兼容性：**
 - ✅ 向后兼容 - 不影响现有Cookie认证站点
 - ✅ 修复localStorage认证 - 牛牛云等站点现在可以正常工作
+- ✅ 改进用户体验 - 命令更简洁，默认行为更智能
 
 ## [1.3.1] - 2025-10-03
 
