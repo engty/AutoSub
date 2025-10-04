@@ -244,11 +244,12 @@ export class ApiDetector {
     if (!localStorage) return null;
 
     // 常见的认证字段（优先级从高到低）
-    const candidates = ['app-user', 'user', 'auth', 'token', 'info', 'userInfo', 'user-info'];
+    const candidates = ['authorization', 'Authorization', 'app-user', 'user', 'auth', 'token', 'info', 'userInfo', 'user-info'];
 
     for (const key of candidates) {
       if (localStorage[key]) {
         try {
+          // 尝试解析JSON
           const parsed = JSON.parse(localStorage[key]);
           // 检测多种常见的token字段名
           if (parsed.token || parsed.Token || parsed.auth_data || parsed.user?.token) {
@@ -258,7 +259,9 @@ export class ApiDetector {
           }
         } catch {
           // 不是JSON，可能直接就是token字符串
+          // authorization、token等字段通常直接存储JWT或token字符串
           if (localStorage[key].length > 20) {
+            logger.info(`检测到localStorage认证字段: ${key}（直接存储token）`);
             return key;
           }
         }

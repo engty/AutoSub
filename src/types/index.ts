@@ -164,6 +164,7 @@ export interface UpdateResult {
   message: string;
   subscriptionUrl?: string;
   error?: Error;
+  warning?: string; // CloudFlare拦截等警告信息
 }
 
 // ==================== 选择器配置类型 ====================

@@ -47,13 +47,33 @@ export class HttpApiExtractor {
 
       // 2. 根据认证方式验证凭证
       const authSource = apiConfig.authSource || 'cookie';
-      const hasCookies = credentials.cookies && credentials.cookies.length > 0;
+      const hasCookies = credentials.cookies && Array.isArray(credentials.cookies) && credentials.cookies.length > 0;
       const hasLocalStorage = credentials.localStorage && Object.keys(credentials.localStorage).length > 0;
+
+      // 调试日志：输出凭证详情
+      logger.debug('凭证验证详情:', {
+        siteId: siteConfig.id,
+        siteName: siteConfig.name,
+        authSource,
+        cookiesType: Array.isArray(credentials.cookies) ? 'array' : typeof credentials.cookies,
+        cookiesLength: Array.isArray(credentials.cookies) ? credentials.cookies.length : 'N/A',
+        hasCookies,
+        localStorageKeys: Object.keys(credentials.localStorage || {}).length,
+        hasLocalStorage,
+      });
 
       // 检查是否有所需的认证数据
       if (authSource === 'cookie' && !hasCookies) {
-        const error = new Error('未找到有效的 Cookie 凭证') as any;
+        const cookieInfo = Array.isArray(credentials.cookies)
+          ? `cookies数组为空(length=${credentials.cookies.length})`
+          : `cookies类型错误(type=${typeof credentials.cookies})`;
+        const error = new Error(`未找到有效的 Cookie 凭证: ${cookieInfo}`) as any;
         error.code = 'CREDENTIALS_NOT_FOUND';
+        logger.error('Cookie验证失败', {
+          siteId: siteConfig.id,
+          cookieInfo,
+          credentialsFile: siteConfig.credentialFile
+        });
         throw error;
       }
 
@@ -96,9 +116,24 @@ export class HttpApiExtractor {
       // 5. 从响应中提取订阅地址
       let subscriptionUrl: string | null = null;
 
-      // ========== 方式1: 使用URL组件配置（新的推荐方式）==========
+      // ========== 方式1（优先级最高）: 直接提取完整订阅地址 ==========
+      // API返回的完整URL包含所有必要参数（如token、timestamp、sign等）
+      if (apiConfig.subscribeUrlField) {
+        subscriptionUrl = this.extractFieldFromResponse(response.data, apiConfig.subscribeUrlField);
+        if (subscriptionUrl) {
+          logger.info(`从响应字段提取完整订阅地址: ${subscriptionUrl.substring(0, 80)}...`);
+
+          // 检查是否需要进行URL格式转换（针对某些站点返回错误格式的URL）
+          if (apiConfig.subscriptionUrl && isValidUrlComponents(apiConfig.subscriptionUrl)) {
+            subscriptionUrl = this.tryFixSubscriptionUrl(subscriptionUrl, apiConfig);
+          }
+        }
+      }
+
+      // ========== 方式2: 使用URL组件配置动态构建 ==========
       // 支持动态更新host/port，适应IP地址和端口变化
-      if (apiConfig.subscriptionUrl && isValidUrlComponents(apiConfig.subscriptionUrl)) {
+      // 注意：只在没有完整URL时使用
+      if (!subscriptionUrl && apiConfig.subscriptionUrl && isValidUrlComponents(apiConfig.subscriptionUrl)) {
         logger.info('使用URL组件模式构建订阅地址');
 
         // 提取token
@@ -132,20 +167,12 @@ export class HttpApiExtractor {
         logger.info(`✓ URL组件模式构建成功: ${subscriptionUrl.substring(0, 50)}...`);
       }
 
-      // ========== 方式2: 使用传统 token + URL 模式（向后兼容）==========
-      else if (apiConfig.tokenField && apiConfig.subscribeUrlPattern) {
+      // ========== 方式3: 使用传统 token + URL 模式（向后兼容）==========
+      if (!subscriptionUrl && apiConfig.tokenField && apiConfig.subscribeUrlPattern) {
         const token = this.extractFieldFromResponse(response.data, apiConfig.tokenField);
         if (token) {
           subscriptionUrl = apiConfig.subscribeUrlPattern.replace('{token}', token);
           logger.info(`使用 Token 构建订阅地址: ${subscriptionUrl.substring(0, 50)}...`);
-        }
-      }
-
-      // ========== 方式3: 直接提取订阅地址字段（向后兼容）==========
-      else if (apiConfig.subscribeUrlField) {
-        subscriptionUrl = this.extractFieldFromResponse(response.data, apiConfig.subscribeUrlField);
-        if (subscriptionUrl) {
-          logger.info(`从响应字段提取订阅地址: ${subscriptionUrl.substring(0, 50)}...`);
         }
       }
 
@@ -236,17 +263,40 @@ export class HttpApiExtractor {
       const keys = authField.split('.');
       let value: any = localStorage;
 
-      for (const key of keys) {
-        if (key in value) {
-          // 如果是JSON字符串，先解析
-          if (typeof value[key] === 'string' && value[key].startsWith('{')) {
-            value = JSON.parse(value[key]);
+      for (let i = 0; i < keys.length; i++) {
+        const key = keys[i];
+
+        if (i === 0) {
+          // 第一层：直接从localStorage获取
+          if (key in localStorage) {
+            value = localStorage[key];
+
+            // 如果这是最后一个key，直接返回
+            if (i === keys.length - 1) {
+              return typeof value === 'string' ? value : null;
+            }
+
+            // 如果还有嵌套路径，尝试解析JSON
+            if (typeof value === 'string') {
+              try {
+                value = JSON.parse(value);
+              } catch {
+                logger.warn(`无法解析localStorage["${key}"]为JSON: ${value.substring(0, 50)}...`);
+                return null;
+              }
+            }
           } else {
-            value = value[key];
+            logger.warn(`localStorage中不存在字段: ${key}`);
+            return null;
           }
         } else {
-          logger.warn(`authField路径 "${authField}" 中的 "${key}" 不存在`);
-          return null;
+          // 后续层级：从解析后的对象中获取
+          if (value && typeof value === 'object' && key in value) {
+            value = value[key];
+          } else {
+            logger.warn(`authField路径 "${authField}" 中的 "${key}" 不存在`);
+            return null;
+          }
         }
       }
 
@@ -289,6 +339,79 @@ export class HttpApiExtractor {
     } catch (error) {
       logger.error('提取字段失败', error);
       return null;
+    }
+  }
+
+  /**
+   * 尝试修复订阅地址格式
+   * 将API返回的URL转换为正确的订阅地址格式
+   *
+   * @param apiUrl API返回的订阅地址（可能格式不正确）
+   * @param apiConfig API配置（包含正确的URL组件）
+   * @returns 修复后的订阅地址
+   */
+  private tryFixSubscriptionUrl(apiUrl: string, apiConfig: HttpApiConfig): string {
+    try {
+      const urlObj = new URL(apiUrl);
+
+      // 从URL中提取token（可能在路径中，也可能在查询参数中）
+      let token: string | null = null;
+
+      // 1. 先尝试从查询参数中获取token
+      const urlParams = new URLSearchParams(urlObj.search);
+      token = urlParams.get('token') || urlParams.get(apiConfig.subscriptionUrl?.tokenParam || 'token');
+
+      // 2. 如果查询参数中没有token，尝试从路径中提取（处理 /sub/{token} 格式）
+      if (!token) {
+        const pathParts = urlObj.pathname.split('/').filter(p => p);
+        const subIndex = pathParts.indexOf('sub');
+        if (subIndex !== -1 && pathParts.length > subIndex + 1) {
+          token = pathParts[subIndex + 1];
+          logger.debug(`从路径中提取token: ${token.substring(0, 10)}...`);
+        } else if (pathParts.length > 0) {
+          // 如果没有 /sub/ 前缀，尝试使用最后一个路径段作为token
+          token = pathParts[pathParts.length - 1];
+          logger.debug(`从路径末尾提取token: ${token.substring(0, 10)}...`);
+        }
+      }
+
+      if (!token) {
+        logger.warn('无法从API返回的URL中提取token，使用原URL');
+        return apiUrl;
+      }
+
+      // 3. 使用正确的URL组件配置重建订阅地址
+      if (apiConfig.subscriptionUrl && isValidUrlComponents(apiConfig.subscriptionUrl)) {
+        const correctUrl = buildSubscriptionUrl(apiConfig.subscriptionUrl, token);
+
+        // 4. 复制原URL中的所有其他查询参数（timestamp、sign等）
+        const additionalParams = new URLSearchParams();
+        urlParams.forEach((value, key) => {
+          // 跳过token参数（因为已经在buildSubscriptionUrl中添加了）
+          if (key !== 'token' && key !== (apiConfig.subscriptionUrl?.tokenParam || 'token')) {
+            additionalParams.append(key, value);
+          }
+        });
+
+        // 如果有额外参数，添加到重建的URL中
+        if (additionalParams.toString()) {
+          const separator = correctUrl.includes('?') ? '&' : '?';
+          const finalUrl = `${correctUrl}${separator}${additionalParams.toString()}`;
+          logger.info(`✓ URL格式已转换（含额外参数）: ${apiUrl.substring(0, 50)}... → ${finalUrl.substring(0, 50)}...`);
+          return finalUrl;
+        }
+
+        logger.info(`✓ URL格式已转换: ${apiUrl.substring(0, 50)}... → ${correctUrl.substring(0, 50)}...`);
+        return correctUrl;
+      }
+
+      // 如果没有URL组件配置，返回原URL
+      logger.debug('没有URL组件配置，使用原URL');
+      return apiUrl;
+
+    } catch (error) {
+      logger.warn(`URL格式转换失败，使用原URL: ${error}`);
+      return apiUrl;
     }
   }
 

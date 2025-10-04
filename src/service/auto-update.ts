@@ -20,6 +20,7 @@ export interface UpdateResult {
   nodeCount?: number;
   error?: string;
   credentialsCaptured: boolean;
+  warning?: string; // CloudFlare拦截等警告信息
 }
 
 /**
@@ -173,9 +174,29 @@ export class AutoUpdateService {
       }
 
       // 2. 验证订阅
-      const validation = await this.validator.validate(subscriptionUrl);
+      let validation;
+      let cloudflareBlocked = false;
 
-      if (!validation.valid) {
+      try {
+        validation = await this.validator.validate(subscriptionUrl);
+      } catch (error: any) {
+        // 检查是否是CloudFlare拦截（403）
+        if (error.message && error.message.includes('403') && error.message.includes('CloudFlare')) {
+          logger.warn('⚠️ 订阅地址被CloudFlare拦截，跳过验证步骤');
+          logger.info(`✓ 订阅地址: ${subscriptionUrl}`);
+          cloudflareBlocked = true;
+          // 创建一个基本的验证结果
+          validation = {
+            valid: true, // 标记为有效以允许保存
+            nodeCount: 0,
+            error: '站点使用CloudFlare拦截，无法进行订阅验证'
+          };
+        } else {
+          throw error;
+        }
+      }
+
+      if (!cloudflareBlocked && !validation.valid) {
         throw new AutoSubError(
           ErrorCode.SUBSCRIPTION_VALIDATION_FAILED,
           `订阅验证失败: ${validation.error}`
@@ -185,9 +206,11 @@ export class AutoUpdateService {
       // 3. 更新配置
       await this.updateSiteConfig(site, subscriptionUrl);
 
-      // 4. 更新 Clash（若验证返回可用配置）
-      if (validation.config) {
+      // 4. 更新 Clash（若验证返回可用配置且非CloudFlare拦截）
+      if (!cloudflareBlocked && validation.config) {
         await this.clashUpdater.mergeConfig(validation.config);
+      } else if (cloudflareBlocked) {
+        logger.info('CloudFlare拦截，跳过Clash配置合并');
       } else {
         logger.info('订阅内容未提供 Clash 配置，跳过合并');
       }
@@ -201,6 +224,7 @@ export class AutoUpdateService {
         subscriptionUrl,
         nodeCount: validation.nodeCount,
         credentialsCaptured: true, // Puppeteer 自动保存 Cookie
+        warning: cloudflareBlocked ? '站点使用CloudFlare拦截，无法进行订阅验证' : undefined,
       };
     } catch (error) {
       if (error instanceof AutoSubError && error.code === ErrorCode.USER_CANCELLED) {
@@ -375,6 +399,17 @@ export class AutoUpdateService {
     site: SiteConfig,
     subscriptionUrl: string
   ): Promise<void> {
+    // 验证subscriptionUrl不为空
+    if (!subscriptionUrl || subscriptionUrl.trim() === '') {
+      logger.error('❌ subscriptionUrl为空，无法保存配置');
+      throw new AutoSubError(
+        ErrorCode.SUBSCRIPTION_EXTRACTION_FAILED,
+        'subscriptionUrl为空，无法保存配置'
+      );
+    }
+
+    logger.info(`准备保存订阅地址: ${subscriptionUrl.substring(0, 50)}...`);
+
     // 保存旧的订阅 URL（用于 Clash 配置匹配）
     const oldSubscriptionUrl = site.subscriptionUrl;
 
@@ -420,6 +455,7 @@ export class AutoUpdateService {
     }
 
     // 更新站点配置
+    logger.info(`正在更新站点配置: ${site.name}, subscriptionUrl: ${subscriptionUrl.substring(0, 50)}...`);
     this.configManager.updateSite(site.id, {
       subscriptionUrl,
       lastUpdate: new Date().toISOString(),
@@ -429,6 +465,17 @@ export class AutoUpdateService {
 
     this.configManager.save();
     logger.info('✓ 站点配置已更新');
+
+    // 验证保存是否成功
+    const savedSite = this.configManager.getSiteById(site.id);
+    if (savedSite && savedSite.subscriptionUrl === subscriptionUrl) {
+      logger.info('✓ 订阅地址保存验证成功');
+    } else {
+      logger.error('❌ 订阅地址保存验证失败', {
+        expected: subscriptionUrl,
+        actual: savedSite?.subscriptionUrl || '(未找到)'
+      });
+    }
 
     // 更新 Clash 配置文件中的订阅 URL
     const clashConfigPath = this.configManager.getConfig().clash.configPath;
