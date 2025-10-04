@@ -1220,6 +1220,73 @@ async function handleStatus() {
   console.log(); // 空行
 }
 
+// 处理站点兼容性测试
+async function handleSiteTest(url: string) {
+  console.log(chalk.cyan.bold('\n🔍 站点兼容性测试\n'));
+  console.log(chalk.white(`测试站点: ${url}\n`));
+
+  const ora = (await import('ora')).default;
+  const spinner = ora('正在初始化测试环境...').start();
+
+  try {
+    // 动态导入测试服务
+    const { SiteTestService } = await import('../service/site-test.js');
+    const { TestReportFormatter } = await import('../utils/test-report-formatter.js');
+
+    spinner.text = '启动浏览器...';
+    const testService = new SiteTestService(url);
+
+    // 执行测试
+    spinner.text = '执行兼容性测试（请在浏览器中完成登录）...';
+    const report = await testService.runTest();
+
+    spinner.succeed('测试完成！');
+    console.log();
+
+    // 格式化报告
+    const aiConfig = getConfigManager().getAIConfig();
+    const formatter = new TestReportFormatter(aiConfig);
+
+    const formattedReport = await formatter.format(report);
+
+    // 显示报告
+    console.log(chalk.cyan.bold('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
+    console.log(chalk.cyan.bold('  测试报告'));
+    console.log(chalk.cyan.bold('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'));
+
+    // 总结
+    console.log(chalk.bold('总结:'));
+    console.log(formattedReport.summary);
+    console.log();
+
+    // 详细信息
+    console.log(formattedReport.details);
+
+    // 建议
+    if (formattedReport.recommendations.length > 0) {
+      console.log(chalk.bold('建议:\n'));
+      formattedReport.recommendations.forEach((rec, index) => {
+        console.log(`${index + 1}. ${rec}`);
+      });
+      console.log();
+    }
+
+    // 提供原始报告JSON（用于提交Issue）
+    console.log(chalk.gray('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
+    console.log(chalk.gray('如需提交Issue，请附上以下原始测试数据：\n'));
+    console.log(chalk.gray('```json'));
+    console.log(chalk.gray(JSON.stringify(report, null, 2)));
+    console.log(chalk.gray('```'));
+    console.log();
+
+  } catch (error: any) {
+    spinner.fail('测试失败');
+    logger.error('测试失败:', error);
+    console.log(chalk.red(`\n❌ 测试失败: ${error.message}\n`));
+    process.exit(1);
+  }
+}
+
 // 处理卸载
 async function handleUninstall(keepConfig: boolean = false) {
   let confirm: boolean;
@@ -1368,6 +1435,12 @@ cli
     } finally {
       await service.cleanup();
     }
+  });
+
+cli
+  .command('test <url>', '测试站点兼容性（不保存任何数据）')
+  .action(async (url: string) => {
+    await handleSiteTest(url);
   });
 
 cli
