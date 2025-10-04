@@ -39,13 +39,37 @@ export class HttpApiExtractor {
 
       // 1. 加载凭证
       const credentials = await readCredentials(siteConfig.id);
-      if (!credentials || !credentials.cookies || credentials.cookies.length === 0) {
+      if (!credentials) {
+        const error = new Error('未找到凭证文件') as any;
+        error.code = 'CREDENTIALS_NOT_FOUND';
+        throw error;
+      }
+
+      // 2. 根据认证方式验证凭证
+      const authSource = apiConfig.authSource || 'cookie';
+      const hasCookies = credentials.cookies && credentials.cookies.length > 0;
+      const hasLocalStorage = credentials.localStorage && Object.keys(credentials.localStorage).length > 0;
+
+      // 检查是否有所需的认证数据
+      if (authSource === 'cookie' && !hasCookies) {
         const error = new Error('未找到有效的 Cookie 凭证') as any;
         error.code = 'CREDENTIALS_NOT_FOUND';
         throw error;
       }
 
-      // 2. 构建请求配置
+      if (authSource === 'localStorage' && !hasLocalStorage) {
+        const error = new Error('未找到有效的 localStorage 凭证') as any;
+        error.code = 'CREDENTIALS_NOT_FOUND';
+        throw error;
+      }
+
+      if (authSource === 'both' && !hasCookies && !hasLocalStorage) {
+        const error = new Error('未找到有效的 Cookie 或 localStorage 凭证') as any;
+        error.code = 'CREDENTIALS_NOT_FOUND';
+        throw error;
+      }
+
+      // 3. 构建请求配置
       const requestConfig = this.buildRequestConfig(apiConfig, credentials.cookies, credentials.localStorage);
 
       // 3. 发送请求
